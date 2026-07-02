@@ -1,14 +1,9 @@
-# HYPERSCALE AI // LAB NOTEBOOK V2.5
 
-[![NVIDIA CUDA Supported](https://img.shields.io/badge/NVIDIA-CUDA_12.1+-76B900?style=for-the-badge&logo=nvidia&logoColor=white)](#)
-[![VRAM Juice Required](https://img.shields.io/badge/VRAM-6GB%20or%20Bust-ff007f?style=for-the-badge)](#)
-[![Garage Hacker License](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)](#)
-[![Live Sandbox Demo](https://img.shields.io/badge/Live_Sandbox-Vercel-10b981?style=for-the-badge&logo=vercel&logoColor=white)](https://hyperscale-ai-amsachs-projects.vercel.app)
 
 ```
-  ▲   █   █ █   █ █▀▀▀█ █▀▀▀█ █▀▀▀▄ █▀▀▀▀ █▀▀▀█ █▀▀▀▄ █     █▀▀▀▀   ▲
-  ★   █▀▀▀█ ▀▄▄▄▀ █▄▄▄█ █▀▀▀█ █▄▄▄▀ ▀▀▀▀█ █     █▄▄▄█ █     █▀▀▀    ★
-  ●   █   █   █   █     █▄▄▄█ █   █ ▄▄▄▄█ █▄▄▄█ █   █ █▄▄▄▄ █▄▄▄▄   ●
+  ▲   █   █ █   █ █▀▀▀█ █▀▀▀ █▀▀▀▄ █▀▀▀▀ █▀▀▀█ █▀▀▀▄ █     █▀▀▀▀   ▲
+  ★   █▀▀▀█ ▀▄▄▄▀ █▄▄▄█ █▀▀▀ █▄▄▄▀ ▀▀▀▀█ █     █▄▄▄█ █     █▀▀▀    ★
+  ●   █   █   █   █     █▄▄▄ █   █ ▄▄▄▄█ █▄▄▄█ █   █ █▄▄▄▄ █▄▄▄▄   ●
 ```
 
 > **"Okay so basically I got sick of standard upscalers turning every human portrait into a weird melted plastic Barbie doll, so I locked myself in my bedroom with 4 cans of soda and wired up a state-of-the-art Hybrid Attention Transformer directly to my NVIDIA RTX card."**  
