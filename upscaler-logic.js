@@ -60,7 +60,8 @@
   let enhDim = { w: 0, h: 0 };
   
   let currentScale = 4;
-  let currentModel = 'ultrasharp-4x';
+  let currentModel = 'hat-sharper';
+  let currentPreset = 'auto';
   let currentDeblur = 'none';
   
   let zoom = 1;
@@ -320,7 +321,7 @@
       procTitle.textContent = 'Poster Detailed!';
       
       showResult();
-      showToast('Poster Enhanced successfully! 🎉', 'success');
+      showToast('Image enhanced!', 'success');
 
     } catch (err) {
       timerWorker.postMessage('stop');

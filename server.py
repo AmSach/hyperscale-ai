@@ -154,23 +154,44 @@ MODEL_REGISTRY = {
 DEFAULT_MODEL = 'hat-sharper'
 
 def _get_model_path(model_name):
-    """Get local path for a model, downloading if needed."""
+    """Get local path for a model, downloading if needed.
+    
+    Handles two cases:
+      - RealESRGAN-style models: have a 'url' key, filename derived from URL
+      - Spandrel/HAT models: have a 'local_file' key, no URL (must be pre-downloaded)
+    """
     info = MODEL_REGISTRY.get(model_name)
     if not info:
         info = MODEL_REGISTRY[DEFAULT_MODEL]
         model_name = DEFAULT_MODEL
-    
+
+    # Spandrel/HAT models ship with a fixed local filename and no download URL
+    if 'local_file' in info:
+        path = os.path.join(MODELS_DIR, info['local_file'])
+        if not os.path.exists(path):
+            raise RuntimeError(
+                f"Model file not found: {path}\n"
+                f"Run `python download_all_models.py` to pre-download all weights."
+            )
+        return path, info
+
+    # RealESRGAN-style models: derive filename from URL and download on demand
     filename = info['url'].split('/')[-1]
     path = os.path.join(MODELS_DIR, filename)
-    
+
     if not os.path.exists(path):
         print(f"[DOWNLOAD] Downloading model from {info['url']} to {path}...")
         import urllib.request
         import socket
-        # Set socket timeout to 15 seconds to prevent indefinite hangs
-        socket.setdefaulttimeout(15)
+        socket.setdefaulttimeout(30)
         try:
-            urllib.request.urlretrieve(info['url'], path)
+            req = urllib.request.Request(info['url'], headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req) as resp, open(path, 'wb') as out:
+                while True:
+                    chunk = resp.read(65536)
+                    if not chunk:
+                        break
+                    out.write(chunk)
             print(f"[OK] Model downloaded: {filename}")
         except Exception as e:
             print(f"[ERROR] Failed to download model: {e}")
@@ -181,10 +202,10 @@ def _get_model_path(model_name):
                     pass
             raise RuntimeError(
                 f"Model file not found and auto-download failed.\n"
-                f"Please download the model manually from:\n{info['url']}\n"
-                f"and save it to:\n{path}"
+                f"Please download manually from:\n{info['url']}\n"
+                f"Save to: {path}"
             )
-    
+
     return path, info
 
 
@@ -2220,7 +2241,31 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == '/api/models':
             self._handle_models()
         elif self.path == '/api/health':
-            self._send_json({'status': 'ok', 'cuda': _torch is not None and _torch.cuda.is_available()})
+            cuda_ok = _torch is not None and _torch.cuda.is_available()
+            gpu_name = ''
+            vram_gb = 0.0
+            if cuda_ok:
+                try:
+                    gpu_name = _torch.cuda.get_device_name(0)
+                    vram_gb = round(_torch.cuda.get_device_properties(0).total_memory / 1024**3, 1)
+                except Exception:
+                    pass
+            # Report which model weights are present on disk
+            model_status = {}
+            for name, info in MODEL_REGISTRY.items():
+                if info.get('engine') == 'replicate':
+                    model_status[name] = True  # cloud model, always available
+                    continue
+                fname = info.get('local_file') or (info.get('url', '').split('/')[-1])
+                model_status[name] = bool(fname and os.path.exists(os.path.join(MODELS_DIR, fname)))
+            self._send_json({
+                'status': 'ok',
+                'cuda': cuda_ok,
+                'gpu': gpu_name,
+                'vram_gb': vram_gb,
+                'models': model_status,
+                'default_model': DEFAULT_MODEL
+            })
         elif self.path == '/api/progress':
             self._handle_progress()
         else:
@@ -2237,15 +2282,22 @@ class Handler(SimpleHTTPRequestHandler):
         self._send_json({'success': True, 'message': 'Abort signal sent.'})
 
     def _handle_models(self):
-        """Return available models list."""
+        """Return available models list with on-disk presence status."""
         models = []
         for name, info in MODEL_REGISTRY.items():
+            if info.get('engine') == 'replicate':
+                present = True  # cloud model
+            else:
+                fname = info.get('local_file') or (info.get('url', '').split('/')[-1])
+                present = bool(fname and os.path.exists(os.path.join(MODELS_DIR, fname)))
             models.append({
                 'id': name,
                 'desc': info['desc'],
                 'scale': info['scale'],
+                'engine': info.get('engine', 'realesrgan'),
+                'present': present,
             })
-        self._send_json({'models': models})
+        self._send_json({'models': models, 'default': DEFAULT_MODEL})
 
     def _handle_upscale(self):
         try:

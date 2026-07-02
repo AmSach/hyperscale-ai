@@ -32,8 +32,8 @@
     <div>
       <div class="section-label">Upscaling Engine</div>
       <div class="btn-group" id="engineGroup">
-        <button class="btn-option active" data-engine="neural" title="Neural AI Engine: uses Real-ESRGAN via CUDA to reconstruct high-fidelity details (requires server.py + GPU)">✨ Neural AI</button>
-        <button class="btn-option" data-engine="algorithmic" title="Algorithmic Engine: uses high-quality Lanczos-3 and local detail filters in the browser">🎛️ Algorithmic</button>
+        <button class="btn-option active" data-engine="neural" title="Neural AI Engine: HAT-GAN Transformer via CUDA">Neural AI</button>
+        <button class="btn-option" data-engine="algorithmic" title="Algorithmic Engine: Lanczos-3 and local detail filters in-browser">Algorithmic</button>
       </div>
     </div>
 
@@ -41,20 +41,20 @@
     <div id="neuralSettingsPanel">
       <div class="section-label">Neural Model</div>
       <select class="select-input" id="modelSelect">
-        <option value="auto" selected>✨ Auto-Detect Best Model</option>
-        <optgroup label="☁️ Cloud SUPIR (Fast & Premium)">
-          <option value="cloud-supir">🚀 Cloud SUPIR (Replicate)</option>
+        <option value="auto" selected>Auto-Detect Best Model</option>
+        <optgroup label="HAT (State-of-the-Art)">
+          <option value="hat-sharper">HAT GAN Sharper — Best Photo Quality</option>
+          <option value="hat-imagenet">HAT ImageNet — Faithful, Sharp</option>
         </optgroup>
-        <optgroup label="⭐ HAT (State-of-the-Art)">
-          <option value="hat-sharper">🏆 HAT GAN Sharper (Best Photo Quality)</option>
-          <option value="hat-imagenet">🔬 HAT ImageNet (Faithful, Sharp)</option>
+        <optgroup label="Cloud">
+          <option value="cloud-supir">Cloud SUPIR (Replicate API)</option>
         </optgroup>
-        <optgroup label="Real-ESRGAN (Legacy)">
-          <option value="realesrgan-x4plus">📷 RealESRGAN x4+ (Photos)</option>
-          <option value="realesrnet-x4plus">🔬 RealESRNet x4+ (Sharper)</option>
-          <option value="realesrgan-x2plus">⚡ RealESRGAN x2+ (2x Fast)</option>
-          <option value="realesrgan-x4plus-anime">🌸 Anime x4 (Illustration)</option>
-          <option value="realesr-general-x4v3">🌐 General v3 (Fast)</option>
+        <optgroup label="Real-ESRGAN">
+          <option value="realesrgan-x4plus">RealESRGAN x4+ (Photos)</option>
+          <option value="realesrnet-x4plus">RealESRNet x4+ (Sharper)</option>
+          <option value="realesrgan-x2plus">RealESRGAN x2+ (2x Fast)</option>
+          <option value="realesrgan-x4plus-anime">Anime x4 (Illustration)</option>
+          <option value="realesr-general-x4v3">General v3 (Fast, Compact)</option>
         </optgroup>
       </select>
 
@@ -70,8 +70,8 @@
       
       <div class="section-label" style="margin-top: var(--space-xs)">Processing Device</div>
       <select class="select-input" id="deviceSelect">
-        <option value="cuda" selected>🚀 GPU (CUDA Acceleration)</option>
-        <option value="cpu">💻 CPU (Slow but Memory-Safe)</option>
+        <option value="cuda" selected>GPU (CUDA Acceleration)</option>
+        <option value="cpu">CPU (Slow but Memory-Safe)</option>
       </select>
       
       <div class="section-label" style="margin-top: var(--space-xs)">Pre-AI Deblur</div>
