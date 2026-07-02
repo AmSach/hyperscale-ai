@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "cleanUrls": false,
+  "headers": [
+    {
+      "source": "/app.zip",
+      "headers": [
+        { "key": "Content-Type", "value": "application/zip" },
+        { "key": "Content-Disposition", "value": "attachment; filename=app.zip" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    },
+    {
+      "source": "/install.ps1",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    },
+    {
+      "source": "/install.bat",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    }
+  ]
+}

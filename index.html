@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SuperAI Upscaler — Professional Algorithmic Image Scaling</title>
+  <meta name="description" content="Professional-grade algorithmic image upscaler. Lanczos-3, edge-directed interpolation, CLAHE, and more. No AI — pure signal processing.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Outfit:wght@100..900&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=retro-80s-chaos-v1">
+</head>
+<body>
+
+<div class="app-layout">
+  <!-- ======================== SIDEBAR ======================== -->
+  <aside class="sidebar">
+    <!-- Header -->
+    <div class="app-header">
+      <h1 class="app-title">SuperAI Upscaler</h1>
+      <p class="app-subtitle">Professional Hybrid Studio</p>
+      <span class="app-badge"><span class="badge-dot"></span> v2.0 • AI + Algorithmic</span>
+    </div>
+
+    <!-- Aman's Dev Notes -->
+    <div class="aman-note">
+      I re-engineered the pipeline to run SD texture refinement BEFORE upscaling.
+      Now it does Topaz-level 8K detail synthesis in under 3 minutes instead of 30!
+    </div>
+
+    <!-- Engine Selector -->
+    <div>
+      <div class="section-label">Upscaling Engine</div>
+      <div class="btn-group" id="engineGroup">
+        <button class="btn-option active" data-engine="neural" title="Neural AI Engine: uses Real-ESRGAN via CUDA to reconstruct high-fidelity details (requires server.py + GPU)">✨ Neural AI</button>
+        <button class="btn-option" data-engine="algorithmic" title="Algorithmic Engine: uses high-quality Lanczos-3 and local detail filters in the browser">🎛️ Algorithmic</button>
+      </div>
+    </div>
+
+    <!-- Neural Settings -->
+    <div id="neuralSettingsPanel">
+      <div class="section-label">Neural Model</div>
+      <select class="select-input" id="modelSelect">
+        <option value="auto" selected>✨ Auto-Detect Best Model</option>
+        <optgroup label="☁️ Cloud SUPIR (Fast & Premium)">
+          <option value="cloud-supir">🚀 Cloud SUPIR (Replicate)</option>
+        </optgroup>
+        <optgroup label="⭐ HAT (State-of-the-Art)">
+          <option value="hat-sharper">🏆 HAT GAN Sharper (Best Photo Quality)</option>
+          <option value="hat-imagenet">🔬 HAT ImageNet (Faithful, Sharp)</option>
+        </optgroup>
+        <optgroup label="Real-ESRGAN (Legacy)">
+          <option value="realesrgan-x4plus">📷 RealESRGAN x4+ (Photos)</option>
+          <option value="realesrnet-x4plus">🔬 RealESRNet x4+ (Sharper)</option>
+          <option value="realesrgan-x2plus">⚡ RealESRGAN x2+ (2x Fast)</option>
+          <option value="realesrgan-x4plus-anime">🌸 Anime x4 (Illustration)</option>
+          <option value="realesr-general-x4v3">🌐 General v3 (Fast)</option>
+        </optgroup>
+      </select>
+
+      <!-- Replicate API Token Input Panel -->
+      <div id="replicateTokenPanel" style="display: none; margin-top: var(--space-xs)">
+        <div class="section-label" style="margin-top: var(--space-xs); margin-bottom: 4px;">Replicate API Token</div>
+        <input type="password" class="text-input" id="replicateTokenInput" placeholder="Paste r8_... token here">
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">
+          Required for Cloud SUPIR. Get yours from 
+          <a href="https://replicate.com/account/api-tokens" target="_blank" style="color: var(--primary-light); text-decoration: underline;">replicate.com</a>.
+        </div>
+      </div>
+      
+      <div class="section-label" style="margin-top: var(--space-xs)">Processing Device</div>
+      <select class="select-input" id="deviceSelect">
+        <option value="cuda" selected>🚀 GPU (CUDA Acceleration)</option>
+        <option value="cpu">💻 CPU (Slow but Memory-Safe)</option>
+      </select>
+      
+      <div class="section-label" style="margin-top: var(--space-xs)">Pre-AI Deblur</div>
+      <div class="btn-group" id="deblurGroup">
+        <button class="btn-option active" data-deblur="none">None</button>
+        <button class="btn-option" data-deblur="mild">Mild</button>
+        <button class="btn-option" data-deblur="heavy">Heavy</button>
+      </div>
+
+      <div class="section-label" style="margin-top: var(--space-xs)">Post-AI Sharpen</div>
+      <div class="btn-group" id="postSharpenGroup">
+        <button class="btn-option" data-sharpen="none">None</button>
+        <button class="btn-option active" data-sharpen="light">Light</button>
+        <button class="btn-option" data-sharpen="medium">Medium</button>
+        <button class="btn-option" data-sharpen="strong">Strong</button>
+      </div>
+
+      <div class="toggle-group" style="margin-top: var(--space-xs)">
+        <label class="toggle-label" title="Runs the AI model twice for extreme detail synthesis at higher scales">
+          <input type="checkbox" id="doublePassCheckbox">
+          <span>🔄 Double-Pass (Max Detail)</span>
+        </label>
+      </div>
+      <div class="toggle-group" style="margin-top: var(--space-xs)">
+        <label class="toggle-label" title="Use GFPGAN to restore and enhance faces in the image">
+          <input type="checkbox" id="faceRestoreCheckbox" checked>
+          <span>👤 Face Restoration (GFPGAN)</span>
+        </label>
+      </div>
+      <div class="toggle-group" style="margin-top: var(--space-xs)">
+        <label class="toggle-label" title="Cleans up blocky pixels on low-res nearest-neighbor images before upscaling">
+          <input type="checkbox" id="deblockCheckbox">
+          <span>🧹 De-Blockify (Blocky/Pixel-Art Fix)</span>
+        </label>
+      </div>
+      <div class="toggle-group" style="margin-top: var(--space-xs)">
+        <label class="toggle-label" title="Preserves the exact color profile of the original photo using LAB channel merging">
+          <input type="checkbox" id="colorMatchCheckbox" checked>
+          <span>🎨 Preserve Original Colors</span>
+        </label>
+      </div>
+      <div class="toggle-group" style="margin-top: var(--space-xs)">
+        <label class="toggle-label" title="Injects high-fidelity textures using Stable Diffusion 1.5 + ControlNet Tile">
+          <input type="checkbox" id="sdRefineCheckbox" checked>
+          <span>🌀 SD Texture Refinement</span>
+        </label>
+      </div>
+      
+      <!-- SD Refine Options Panel -->
+      <div id="sdRefinePanel" style="display: block; margin-top: var(--space-xs); padding: var(--space-md); border: 1px solid var(--border-glass); border-radius: var(--radius-lg); background: var(--bg-surface);">
+        <div class="section-label" style="margin-bottom: var(--space-sm)">SD Refine Settings</div>
+        
+        <div class="slider-group" style="margin-bottom: var(--space-md)">
+          <div class="slider-header">
+            <span>Denoising Strength</span>
+            <span id="sdStrengthVal">30%</span>
+          </div>
+          <input type="range" class="slider-input" id="sdStrengthSlider" min="10" max="40" value="30" step="1">
+          <p class="section-description" style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Lower = more faithful to HAT, Higher = more creative textures</p>
+        </div>
+
+        <div style="margin-bottom: var(--space-md)">
+          <div class="section-label" style="margin-bottom: 4px; font-size: 10px;">Refinement Stage</div>
+          <select class="select-input" id="sdStageSelect" style="font-size: 11px; padding: 6px 12px; height: auto;">
+            <option value="post" selected>Post-Upscale (Realism, Skin pores, Folds, Leaves)</option>
+            <option value="pre">Pre-Upscale (Fast, best for small photos/graphics)</option>
+          </select>
+          <p class="section-description" style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Post-upscaling runs SD at native size, producing highly realistic structures.</p>
+        </div>
+
+        <div class="slider-group" style="margin-bottom: var(--space-md)">
+          <div class="slider-header">
+            <span>Detail Activation Threshold</span>
+            <span id="sdDetailThresholdVal">50.0</span>
+          </div>
+          <input type="range" class="slider-input" id="sdDetailThresholdSlider" min="20" max="100" value="50" step="5">
+          <p class="section-description" style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Lower = refines smoother areas (e.g. skin), Higher = only refines high contrast edges</p>
+        </div>
+        
+        <div style="margin-bottom: var(--space-md)">
+          <div class="section-label" style="margin-bottom: 4px; font-size: 10px;">Refinement Mode</div>
+          <select class="select-input" id="sdModeSelect" style="font-size: 11px; padding: 6px 12px; height: auto;">
+            <option value="hybrid" selected>Hybrid (Frequency Split - Preserves shapes/colors)</option>
+            <option value="full">Full Refine (Structural - Corrects faces/details)</option>
+          </select>
+          <p class="section-description" style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Hybrid splits frequencies to keep lighting/colors 100% faithful while injecting textures.</p>
+        </div>
+        
+        <div style="margin-bottom: var(--space-md)">
+          <div class="section-label" style="margin-bottom: 4px; font-size: 10px;">SD Tile Size</div>
+          <select class="select-input" id="sdTileSizeSelect" style="font-size: 11px; padding: 6px 12px; height: auto;">
+            <option value="0" selected>Auto (Based on VRAM)</option>
+            <option value="512">512 (Safest details, slow)</option>
+            <option value="768">768 (Balanced speed/details)</option>
+            <option value="1024">1024 (Fastest, uses more VRAM)</option>
+          </select>
+          <p class="section-description" style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Larger tile sizes process much faster but consume more GPU VRAM.</p>
+        </div>
+
+        <div class="slider-group" style="margin-bottom: var(--space-md)">
+          <div class="slider-header">
+            <span>ControlNet Guidance Scale</span>
+            <span id="sdControlNetVal">0.70</span>
+          </div>
+          <input type="range" class="slider-input" id="sdControlNetSlider" min="0.4" max="1.0" value="0.70" step="0.05">
+          <p class="section-description" style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Lower = more freedom to generate sharp lines/pores, Higher = stricter shape lock</p>
+        </div>
+
+        <div class="slider-group" style="margin-bottom: var(--space-md)">
+          <div class="slider-header">
+            <span>Detail Boost Factor</span>
+            <span id="sdDetailBoostVal">1.50</span>
+          </div>
+          <input type="range" class="slider-input" id="sdDetailBoostSlider" min="1.0" max="2.0" value="1.50" step="0.05">
+          <p class="section-description" style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Amplifies the sharp micro-textures synthesized by SD (1.0 = normal, 1.3+ = crispy)</p>
+        </div>
+        
+        <div style="margin-bottom: var(--space-sm)">
+          <div class="section-label" style="margin-bottom: 4px; font-size: 10px;">Positive Prompt</div>
+          <input type="text" class="text-input" id="sdPromptInput" value="raw photo, highly detailed, sharp focus, 8k, realistic textures, dslr, 35mm lens, film grain" style="font-size: 11px;">
+        </div>
+        
+        <div>
+          <div class="section-label" style="margin-bottom: 4px; font-size: 10px;">Negative Prompt</div>
+          <input type="text" class="text-input" id="sdNegPromptInput" value="airbrushed, plastic, waxy, CGI, 3D, render, digital art, smooth skin, oily skin, blurry, low quality, cartoon, painting, drawing, illustration" style="font-size: 11px;">
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload Zone -->
+    <div>
+      <div class="section-label">Image</div>
+      <div class="upload-zone" id="uploadZone">
+        <div id="uploadContent">
+          <div class="upload-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <div class="upload-text">Drop image here</div>
+          <div class="upload-subtext">or click to browse • JPG, PNG, WebP, BMP</div>
+        </div>
+      </div>
+      <input type="file" id="fileInput" class="hidden-input" accept="image/jpeg,image/png,image/webp,image/bmp">
+    </div>
+
+    <!-- Scale Factor -->
+    <div>
+      <div class="section-label">Scale Factor</div>
+      <div class="btn-group" id="scaleGroup">
+        <button class="btn-option" data-scale="1" title="Enhance quality without changing size — sharpening, contrast, color correction">1× Enhance</button>
+        <button class="btn-option" data-scale="2">2x</button>
+        <button class="btn-option" data-scale="3">3x</button>
+        <button class="btn-option active" data-scale="4">4x</button>
+        <button class="btn-option" data-scale="6">6x</button>
+        <button class="btn-option" data-scale="8">8x</button>
+      </div>
+      <div class="output-dims" id="outputDims"></div>
+    </div>
+
+    <!-- Quality Presets -->
+    <div>
+      <div class="section-label">Quality Preset</div>
+      <div class="btn-group" id="presetGroup">
+        <button class="btn-option btn-preset active" data-preset="auto" title="Auto-Adaptive: analyzes image type, noise, and details to customize settings dynamically">✨ Auto</button>
+        <button class="btn-option btn-preset" data-preset="poster" title="Optimized for large prints: strong detail, high contrast, rich colors">🖼️ Poster</button>
+        <button class="btn-option btn-preset" data-preset="web" title="Balanced for web: moderate sharpening, faster processing">🌐 Web</button>
+        <button class="btn-option btn-preset" data-preset="photo" title="Natural photo look: balanced detail, accurate colors">📷 Photo</button>
+        <button class="btn-option btn-preset" data-preset="maximum" title="Maximum detail extraction: aggressive processing, longer time">🔬 Max</button>
+      </div>
+    </div>
+
+    <!-- Advanced Settings -->
+    <div>
+      <button class="advanced-toggle" id="advancedToggle">
+        <span>⚙ Fine Tuning</span>
+        <span class="advanced-toggle-icon">▼</span>
+      </button>
+      <div class="advanced-panel" id="advancedPanel">
+        <div class="advanced-panel-inner">
+          <div class="slider-group">
+            <div class="slider-header">
+              <span class="slider-label">Sharpening</span>
+              <span class="slider-value" id="sharpVal">65</span>
+            </div>
+            <input type="range" class="slider-input" id="sharpSlider" min="0" max="100" value="65">
+          </div>
+          <div class="slider-group">
+            <div class="slider-header">
+              <span class="slider-label">Detail Injection</span>
+              <span class="slider-value" id="detailVal">70</span>
+            </div>
+            <input type="range" class="slider-input" id="detailSlider" min="0" max="100" value="70">
+          </div>
+          <div class="slider-group">
+            <div class="slider-header">
+              <span class="slider-label">Local Contrast</span>
+              <span class="slider-value" id="contrastVal">60</span>
+            </div>
+            <input type="range" class="slider-input" id="contrastSlider" min="0" max="100" value="60">
+          </div>
+          <div class="slider-group">
+            <div class="slider-header">
+              <span class="slider-label">Color Boost</span>
+              <span class="slider-value" id="colorVal">40</span>
+            </div>
+            <input type="range" class="slider-input" id="colorSlider" min="0" max="100" value="40">
+          </div>
+          <div class="slider-group">
+            <div class="slider-header">
+              <span class="slider-label">Denoise</span>
+              <span class="slider-value" id="denoiseVal">12</span>
+            </div>
+            <input type="range" class="slider-input" id="denoiseSlider" min="0" max="100" value="12">
+          </div>
+          <div class="slider-group">
+            <div class="slider-header">
+              <span class="slider-label">Film Grain</span>
+              <span class="slider-value" id="grainVal">12</span>
+            </div>
+            <input type="range" class="slider-input" id="grainSlider" min="0" max="100" value="12">
+          </div>
+          <div class="slider-group">
+            <div class="slider-header">
+              <span class="slider-label">Cinematic Look</span>
+              <span class="slider-value" id="cinematicVal">0</span>
+            </div>
+            <input type="range" class="slider-input" id="cinematicSlider" min="0" max="100" value="0">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Process Button -->
+    <button class="btn-process" id="processBtn" disabled>
+      <span class="btn-spinner"></span>
+      <span id="processBtnText">⚡ Upscale Image</span>
+    </button>
+    <button class="btn-process" id="cancelBtn" style="display:none; background: linear-gradient(135deg, #dc3545, #c82333); margin-top: 8px;" onclick="fetch('http://localhost:8080/api/cancel', {method:'POST'}).then(()=>{this.textContent='⏹ Cancelling...'; this.disabled=true;})">
+      ⏹ Cancel
+    </button>
+  </aside>
+
+  <!-- ======================== MAIN AREA ======================== -->
+  <main class="main-area">
+    <!-- Empty State -->
+    <div class="empty-state" id="emptyState">
+      <div class="empty-orb"></div>
+      <div class="empty-icon">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+      </div>
+      <div class="empty-text">Upload an image to begin</div>
+      <div class="empty-hint">Supports JPG, PNG, WebP, BMP — up to any size</div>
+    </div>
+
+    <!-- Processing State -->
+    <div class="processing-state" id="processingState">
+      <div class="progress-ring-container">
+        <svg class="progress-ring" viewBox="0 0 160 160">
+          <defs>
+            <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#6366f1"/>
+              <stop offset="100%" stop-color="#06b6d4"/>
+            </linearGradient>
+          </defs>
+          <circle class="progress-ring-bg" cx="80" cy="80" r="72"/>
+          <circle class="progress-ring-fill" id="progressRing" cx="80" cy="80" r="72"/>
+        </svg>
+        <div class="progress-percent" id="progressPercent">0%</div>
+      </div>
+      <div class="progress-stage" id="progressStage">Initializing...</div>
+      <div class="progress-overall">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progressBar"></div>
+        </div>
+        <div class="progress-time" id="progressTime">0.0s elapsed</div>
+      </div>
+    </div>
+
+    <!-- Result State -->
+    <div class="result-state" id="resultState">
+      <!-- Comparison -->
+      <div class="comparison-container" id="comparisonContainer">
+        <div class="comparison-inner" id="comparisonInner">
+          <img class="comparison-img original" id="imgOriginal" alt="Original">
+          <img class="comparison-img upscaled" id="imgUpscaled" alt="Upscaled">
+        </div>
+
+        <!-- Comparison slider -->
+        <div class="comparison-slider" id="compSlider">
+          <div class="slider-handle">
+            <svg viewBox="0 0 16 16" fill="currentColor">
+              <path d="M5 3L1 8l4 5V3zM11 3l4 5-4 5V3z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Labels -->
+      <div class="comparison-label left">Original</div>
+      <div class="comparison-label right">Upscaled</div>
+
+      <!-- Top Actions -->
+      <div class="top-actions">
+        <button class="btn-download" id="downloadBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download PNG
+        </button>
+        <button class="btn-new" id="newBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Image
+        </button>
+      </div>
+
+      <!-- Zoom Controls -->
+      <div class="floating-controls">
+        <button class="float-btn" id="zoomOut">−</button>
+        <span class="zoom-level" id="zoomLevel">100%</span>
+        <button class="float-btn" id="zoomIn">+</button>
+        <button class="float-btn" id="zoomReset">Reset</button>
+      </div>
+
+      <!-- Info Bar -->
+      <div class="info-bar" id="infoBar">
+        <div class="info-item"><strong id="infoDims">—</strong></div>
+        <div class="info-item">⏱ <strong id="infoTime">—</strong></div>
+        <div class="info-item">Scale: <strong id="infoScale">—</strong></div>
+        <div class="info-item">Type: <strong id="infoType">—</strong></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Hidden canvases -->
+<canvas id="srcCanvas" style="display:none"></canvas>
+<canvas id="resultCanvas" style="display:none"></canvas>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ======================== STATE ==========================================
+  let worker = null;
+  let sourceImage = null;   // HTMLImageElement
+  let sourceW = 0, sourceH = 0;
+  let resultDataUrl = null;
+  let selectedScale = 4;
+  let originalObjectURL = null;
+  let upscaledObjectURL = null;
+  let sourceImageObjectURL = null;
+  let selectedPreset = 'auto';
+  let isProcessing = false;
+  let processStartTime = 0;
+  let timerInterval = null;
+  let selectedEngine = 'neural'; // 'neural' or 'algorithmic'
+  let selectedDeblur = 'none';
+
+  // Zoom/Pan state
+  let zoom = 1;
+  let panX = 0, panY = 0;
+  let isPanning = false;
+  let panStartX = 0, panStartY = 0;
+
+  // Comparison slider
+  let sliderPos = 50; // percent
+  let isDraggingSlider = false;
+
+  // Preset values (Maximum uses True Generative AI)
+  const PRESETS = {
+    auto:    { sharpening: 50, detail: 50, contrast: 50, colorBoost: 30, denoise: 12, grain: 12, cinematic: 0 },
+    poster:  { sharpening: 65, detail: 70, contrast: 60, colorBoost: 40, denoise: 0,  grain: 12, cinematic: 0 },
+    web:     { sharpening: 40, detail: 40, contrast: 40, colorBoost: 25, denoise: 10, grain: 0,  cinematic: 0 },
+    photo:   { sharpening: 50, detail: 55, contrast: 45, colorBoost: 30, denoise: 12, grain: 12, cinematic: 0 },
+    maximum: { sharpening: 0,  detail: 0,  contrast: 30, colorBoost: 15, denoise: 12, grain: 5,  cinematic: 0, 
+               sdMode: 'hybrid', sdStrength: 45, sdControlNet: 0.65 }
+  };
+
+  // ======================== DOM ELEMENTS ====================================
+  const $ = id => document.getElementById(id);
+  const uploadZone = $('uploadZone');
+  const uploadContent = $('uploadContent');
+  const fileInput = $('fileInput');
+  const scaleGroup = $('scaleGroup');
+  const outputDims = $('outputDims');
+  const presetGroup = $('presetGroup');
+  const advancedToggle = $('advancedToggle');
+  const advancedPanel = $('advancedPanel');
+  const processBtn = $('processBtn');
+  const processBtnText = $('processBtnText');
+  const emptyState = $('emptyState');
+  const processingState = $('processingState');
+  const progressRing = $('progressRing');
+  const progressPercent = $('progressPercent');
+  const progressStage = $('progressStage');
+  const progressBar = $('progressBar');
+  const progressTime = $('progressTime');
+  const resultState = $('resultState');
+  const comparisonContainer = $('comparisonContainer');
+  const comparisonInner = $('comparisonInner');
+  const imgOriginal = $('imgOriginal');
+  const imgUpscaled = $('imgUpscaled');
+  const compSlider = $('compSlider');
+  const downloadBtn = $('downloadBtn');
+  const newBtn = $('newBtn');
+  const zoomIn = $('zoomIn');
+  const zoomOut = $('zoomOut');
+  const zoomReset = $('zoomReset');
+  const zoomLevel = $('zoomLevel');
+  const infoDims = $('infoDims');
+  const infoTime = $('infoTime');
+  const infoScale = $('infoScale');
+  const infoType = $('infoType');
+
+  // New Neural/Engine Controls
+  const engineGroup = $('engineGroup');
+  const neuralSettingsPanel = $('neuralSettingsPanel');
+  const modelSelect = $('modelSelect');
+  const deviceSelect = $('deviceSelect');
+  const deblurGroup = $('deblurGroup');
+  const doublePassCheckbox = $('doublePassCheckbox');
+  const faceRestoreCheckbox = $('faceRestoreCheckbox');
+  const deblockCheckbox = $('deblockCheckbox');
+  const colorMatchCheckbox = $('colorMatchCheckbox');
+  const sdRefineCheckbox = $('sdRefineCheckbox');
+  const sdRefinePanel = $('sdRefinePanel');
+  const sdStrengthSlider = $('sdStrengthSlider');
+  const sdStrengthVal = $('sdStrengthVal');
+  const sdStageSelect = $('sdStageSelect');
+  const sdDetailThresholdSlider = $('sdDetailThresholdSlider');
+  const sdDetailThresholdVal = $('sdDetailThresholdVal');
+  const sdControlNetSlider = $('sdControlNetSlider');
+  const sdControlNetVal = $('sdControlNetVal');
+  const sdDetailBoostSlider = $('sdDetailBoostSlider');
+  const sdDetailBoostVal = $('sdDetailBoostVal');
+  const sdPromptInput = $('sdPromptInput');
+  const sdNegPromptInput = $('sdNegPromptInput');
+  const sdModeSelect = $('sdModeSelect');
+  const sdTileSizeSelect = $('sdTileSizeSelect');
+  const postSharpenGroup = $('postSharpenGroup');
+  let selectedPostSharpen = 'light';
+
+  const replicateTokenPanel = $('replicateTokenPanel');
+  const replicateTokenInput = $('replicateTokenInput');
+
+  // Initialize Replicate API token from localStorage
+  replicateTokenInput.value = localStorage.getItem('replicate_api_token') || '';
+  replicateTokenInput.addEventListener('input', () => {
+    localStorage.setItem('replicate_api_token', replicateTokenInput.value.trim());
+  });
+
+  // Toggle Replicate token panel based on model selection
+  modelSelect.addEventListener('change', () => {
+    const isCloud = modelSelect.value === 'cloud-supir';
+    replicateTokenPanel.style.display = isCloud ? 'block' : 'none';
+  });
+
+  // Toggle SD Refine panel based on checkbox
+  sdRefineCheckbox.addEventListener('change', () => {
+    sdRefinePanel.style.display = sdRefineCheckbox.checked ? 'block' : 'none';
+  });
+
+  // Update SD strength label on slider input
+  sdStrengthSlider.addEventListener('input', () => {
+    sdStrengthVal.textContent = sdStrengthSlider.value + '%';
+  });
+
+  sdDetailThresholdSlider.addEventListener('input', () => {
+    sdDetailThresholdVal.textContent = parseFloat(sdDetailThresholdSlider.value).toFixed(1);
+  });
+
+  sdControlNetSlider.addEventListener('input', () => {
+    sdControlNetVal.textContent = parseFloat(sdControlNetSlider.value).toFixed(2);
+  });
+
+  sdDetailBoostSlider.addEventListener('input', () => {
+    sdDetailBoostVal.textContent = parseFloat(sdDetailBoostSlider.value).toFixed(2);
+  });
+
+  // Sliders
+  const sliders = {
+    sharpening: { input: $('sharpSlider'), value: $('sharpVal') },
+    detail:     { input: $('detailSlider'), value: $('detailVal') },
+    contrast:   { input: $('contrastSlider'), value: $('contrastVal') },
+    colorBoost: { input: $('colorSlider'), value: $('colorVal') },
+    denoise:    { input: $('denoiseSlider'), value: $('denoiseVal') },
+    grain:      { input: $('grainSlider'), value: $('grainVal') },
+    cinematic:  { input: $('cinematicSlider'), value: $('cinematicVal') }
+  };
+
+  // ======================== WEB WORKER INIT =================================
+  function initWorker() {
+    try {
+      worker = new Worker('upscaler-worker.js');
+      setupWorkerHandlers();
+    } catch(e) {
+      // Fallback for file:// protocol — create blob worker
+      fetch('upscaler-worker.js')
+        .then(r => r.text())
+        .then(code => {
+          const blob = new Blob([code], { type: 'application/javascript' });
+          worker = new Worker(URL.createObjectURL(blob));
+          setupWorkerHandlers();
+        })
+        .catch(err => {
+          showToast('Failed to initialize upscaler engine: ' + err.message);
+        });
+    }
+  }
+
+  function setupWorkerHandlers() {
+    worker.onmessage = function(e) {
+      const msg = e.data;
+      if (msg.type === 'progress') {
+        updateProgress(msg);
+      } else if (msg.type === 'complete') {
+        handleComplete(msg);
+      } else if (msg.type === 'error') {
+        handleError(msg.message);
+      }
+    };
+    worker.onerror = function(e) {
+      handleError('Worker error: ' + (e.message || 'Unknown error'));
+    };
+  }
+
+  // ======================== FILE HANDLING ====================================
+  uploadZone.addEventListener('click', () => {
+    if (!isProcessing) fileInput.click();
+  });
+
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) loadFile(e.target.files[0]);
+  });
+
+  uploadZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadZone.classList.add('drag-over');
+  });
+
+  uploadZone.addEventListener('dragleave', () => {
+    uploadZone.classList.remove('drag-over');
+  });
+
+  uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length > 0) loadFile(e.dataTransfer.files[0]);
+  });
+
+  function loadFile(file) {
+    if (!file.type.match(/^image\/(jpeg|png|webp|bmp)$/)) {
+      showToast('Unsupported format. Use JPG, PNG, WebP, or BMP.');
+      return;
+    }
+
+    if (sourceImageObjectURL) {
+      URL.revokeObjectURL(sourceImageObjectURL);
+    }
+    sourceImageObjectURL = URL.createObjectURL(file);
+
+    const img = new Image();
+    img.onload = function() {
+      sourceImage = img;
+      sourceW = img.naturalWidth;
+      sourceH = img.naturalHeight;
+      processBtn.disabled = false;
+      updateOutputDims();
+
+      // Show preview in upload zone
+      uploadContent.innerHTML = '';
+      const preview = document.createElement('div');
+      preview.className = 'file-preview';
+      preview.innerHTML = `
+        <img class="file-thumb" src="${sourceImageObjectURL}" alt="Preview">
+        <div class="file-info">
+          <div class="file-name">${file.name}</div>
+          <div class="file-dims">${sourceW} × ${sourceH} px</div>
+        </div>
+      `;
+      uploadContent.appendChild(preview);
+    };
+    img.onerror = function() {
+      showToast('Failed to load selected image.');
+    };
+    img.src = sourceImageObjectURL;
+  }
+
+  // ======================== SCALE SELECTION ==================================
+  scaleGroup.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-scale]');
+    if (!btn || isProcessing) return;
+    scaleGroup.querySelectorAll('.btn-option').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedScale = parseInt(btn.dataset.scale);
+    updateOutputDims();
+  });
+
+  function updateOutputDims() {
+    if (!sourceImage) {
+      outputDims.textContent = '';
+      return;
+    }
+    const outW = sourceW * selectedScale;
+    const outH = sourceH * selectedScale;
+    outputDims.textContent = `Output: ${outW} × ${outH}`;
+  }
+
+  // ======================== ENGINE & DEBLUR SELECTION ========================
+  engineGroup.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-engine]');
+    if (!btn || isProcessing) return;
+    engineGroup.querySelectorAll('.btn-option').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedEngine = btn.dataset.engine;
+    
+    if (selectedEngine === 'neural') {
+      neuralSettingsPanel.classList.remove('hidden');
+    } else {
+      neuralSettingsPanel.classList.add('hidden');
+    }
+  });
+
+  deblurGroup.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-deblur]');
+    if (!btn || isProcessing) return;
+    deblurGroup.querySelectorAll('.btn-option').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedDeblur = btn.dataset.deblur;
+  });
+
+  postSharpenGroup.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-sharpen]');
+    if (!btn || isProcessing) return;
+    postSharpenGroup.querySelectorAll('.btn-option').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedPostSharpen = btn.dataset.sharpen;
+  });
+
+  deviceSelect.addEventListener('change', () => {
+    if (deviceSelect.value === 'cpu') {
+      const activeModel = modelSelect.value;
+      if (activeModel === 'auto' || activeModel === 'realesrgan-x4plus' || activeModel === 'realesrnet-x4plus') {
+        modelSelect.value = 'realesr-general-x4v3';
+        showToast('Switched to General v3 (Fast) model for CPU cores processing.');
+      }
+    }
+  });
+
+  // ======================== PRESET SELECTION =================================
+  presetGroup.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-preset]');
+    if (!btn || isProcessing) return;
+    presetGroup.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedPreset = btn.dataset.preset;
+    applyPresetToSliders(selectedPreset);
+  });
+
+  function applyPresetToSliders(preset) {
+    const p = PRESETS[preset];
+    if (!p) return;
+    sliders.sharpening.input.value = p.sharpening;
+    sliders.sharpening.value.textContent = p.sharpening;
+    sliders.detail.input.value = p.detail;
+    sliders.detail.value.textContent = p.detail;
+    sliders.contrast.input.value = p.contrast;
+    sliders.contrast.value.textContent = p.contrast;
+    sliders.colorBoost.input.value = p.colorBoost;
+    sliders.colorBoost.value.textContent = p.colorBoost;
+    sliders.denoise.input.value = p.denoise;
+    sliders.denoise.value.textContent = p.denoise;
+    sliders.grain.input.value = p.grain ?? 0;
+    sliders.grain.value.textContent = p.grain ?? 0;
+    sliders.cinematic.input.value = p.cinematic ?? 0;
+    sliders.cinematic.value.textContent = p.cinematic ?? 0;
+    
+    // Apply Generative AI overrides for maximum
+    if (p.sdMode && $('sdModeSelect')) {
+      $('sdModeSelect').value = p.sdMode;
+      $('sdRefineCheckbox').checked = true;
+    }
+    if (p.sdStrength && $('sdStrengthSlider')) {
+      $('sdStrengthSlider').value = p.sdStrength;
+      $('sdStrengthVal').textContent = p.sdStrength + '%';
+    }
+    if (p.sdControlNet && $('sdControlNetSlider')) {
+      $('sdControlNetSlider').value = p.sdControlNet;
+      $('sdControlNetVal').textContent = p.sdControlNet.toFixed(2);
+    }
+  }
+
+  // ======================== ADVANCED SETTINGS ================================
+  advancedToggle.addEventListener('click', () => {
+    advancedToggle.classList.toggle('open');
+    advancedPanel.classList.toggle('open');
+  });
+
+  // Slider input events
+  Object.entries(sliders).forEach(([key, s]) => {
+    s.input.addEventListener('input', () => {
+      s.value.textContent = s.input.value;
+      // Deselect preset when user manually adjusts
+      presetGroup.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+      selectedPreset = null;
+    });
+  });
+
+  // ======================== PREVIEW AND BLOB UTILITIES =======================
+  async function base64ToBlobURL(base64Data, contentType = 'image/png') {
+    const res = await fetch(base64Data);
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  }
+
+  function downsampleImageIfNeeded(imageElement, maxDim = 2048) {
+    return new Promise((resolve) => {
+      const w = imageElement.naturalWidth;
+      const h = imageElement.naturalHeight;
+      if (w <= maxDim && h <= maxDim) {
+        resolve(imageElement.src);
+        return;
+      }
+      
+      let newW = w;
+      let newH = h;
+      if (w > h) {
+        if (w > maxDim) {
+          newH = Math.round((h * maxDim) / w);
+          newW = maxDim;
+        }
+      } else {
+        if (h > maxDim) {
+          newW = Math.round((w * maxDim) / h);
+          newH = maxDim;
+        }
+      }
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = newW;
+      canvas.height = newH;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(imageElement, 0, 0, newW, newH);
+      
+      canvas.toBlob(blob => {
+        if (blob) {
+          resolve(URL.createObjectURL(blob));
+        } else {
+          resolve(imageElement.src);
+        }
+      }, 'image/jpeg', 0.85);
+    });
+  }
+
+  // ======================== PROCESS ==========================================
+  processBtn.addEventListener('click', startProcessing);
+
+  function startProcessing() {
+    if (!sourceImage || isProcessing || !worker) return;
+    
+    if (selectedEngine === 'neural') {
+      startNeuralProcessing();
+    } else {
+      startAlgorithmicProcessing();
+    }
+  }
+
+  async function startNeuralProcessing() {
+    isProcessing = true;
+    
+    // Update UI to processing state
+    processBtn.classList.add('processing');
+    processBtnText.textContent = 'Contacting AI...';
+    processBtn.disabled = true;
+    const cancelBtn = $('cancelBtn');
+    cancelBtn.style.display = 'block';
+    cancelBtn.disabled = false;
+    cancelBtn.textContent = '⏹ Cancel';
+    showView('processing');
+    
+    updateProgress({ percent: 5, stage: 'Preparing image...', totalStages: 5, stageIndex: 0 });
+    
+    processStartTime = Date.now();
+    timerInterval = setInterval(() => {
+      const elapsed = ((Date.now() - processStartTime) / 1000).toFixed(1);
+      progressTime.textContent = elapsed + 's elapsed';
+    }, 100);
+
+    let creepTimer = null;
+    try {
+      // Get base64 representation of source image
+      const srcCanvas = $('srcCanvas');
+      srcCanvas.width = sourceW;
+      srcCanvas.height = sourceH;
+      const ctx = srcCanvas.getContext('2d');
+      ctx.drawImage(sourceImage, 0, 0);
+      const base64Data = srcCanvas.toDataURL('image/png');
+
+      updateProgress({ percent: 20, stage: 'Sending to GPU Server...', totalStages: 5, stageIndex: 1 });
+
+      // Start polling actual progress from GPU server during the network request
+      creepTimer = setInterval(async () => {
+        if (!isProcessing) {
+          clearInterval(creepTimer);
+          return;
+        }
+        
+        try {
+          const progressResp = await fetch('http://localhost:8080/api/progress');
+          if (progressResp.ok) {
+            const data = await progressResp.json();
+            if (data.active) {
+              let stageMsg = data.stage;
+              if (data.total_tiles > 0) {
+                stageMsg += ` | Tile ${data.tile_idx}/${data.total_tiles}`;
+                if (data.speed > 0) {
+                  stageMsg += ` (${data.speed}s/tile)`;
+                }
+                if (data.eta) {
+                  stageMsg += ` | ETA: ${data.eta}`;
+                }
+              }
+              
+              updateProgress({
+                percent: data.percent,
+                stage: stageMsg,
+                totalStages: 5,
+                stageIndex: 1
+              });
+            }
+          }
+        } catch (err) {
+          // Ignore connection errors during polling
+        }
+      }, 500);
+
+      // Call API (using absolute URL to support running index.html from file:// protocol)
+      const response = await fetch('http://localhost:8080/api/upscale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: base64Data,
+          model: modelSelect.value,
+          scale: selectedScale,
+          replicate_api_key: replicateTokenInput.value.trim(),
+          deblur: selectedDeblur,
+          double_pass: doublePassCheckbox.checked,
+          face_restore: faceRestoreCheckbox.checked,
+          post_sharpen: selectedPostSharpen,
+          // Advanced fine-tuning options
+          sharpening: parseInt(sliders.sharpening.input.value),
+          detail: parseInt(sliders.detail.input.value),
+          contrast: parseInt(sliders.contrast.input.value),
+          colorBoost: parseInt(sliders.colorBoost.input.value),
+          denoise: parseInt(sliders.denoise.input.value),
+          grain: parseInt(sliders.grain.input.value),
+          preset: selectedPreset,
+          deblock: deblockCheckbox.checked,
+          cinematic: parseInt(sliders.cinematic.input.value),
+          device: deviceSelect.value,
+          color_match: colorMatchCheckbox.checked,
+          sd_refine: sdRefineCheckbox.checked,
+          sd_prompt: sdPromptInput.value,
+          sd_neg_prompt: sdNegPromptInput.value,
+          sd_strength: parseInt(sdStrengthSlider.value),
+          sd_mode: sdModeSelect.value,
+          sd_tile_size: parseInt(sdTileSizeSelect.value),
+          sd_controlnet_strength: parseFloat(sdControlNetSlider.value),
+          sd_detail_boost: parseFloat(sdDetailBoostSlider.value),
+          sd_refine_stage: sdStageSelect.value,
+          sd_detail_threshold: parseFloat(sdDetailThresholdSlider.value)
+        })
+      });
+
+      if (creepTimer) {
+        clearInterval(creepTimer);
+      }
+
+      if (!response.ok) {
+        // Try to parse the error response body for a meaningful message
+        let serverError = `AI server returned status ${response.status}`;
+        try {
+          const errBody = await response.json();
+          if (errBody.error) {
+            serverError = errBody.error;
+          }
+        } catch (parseErr) {
+          // Response body wasn't JSON, use generic message
+        }
+        throw new Error(serverError);
+      }
+
+      updateProgress({ percent: 70, stage: 'Decoding AI output...', totalStages: 5, stageIndex: 2 });
+
+      const res = await response.json();
+      if (!res.success) {
+        throw new Error(res.error || 'AI upscaling failed.');
+      }
+
+      updateProgress({ percent: 85, stage: 'Generating preview...', totalStages: 5, stageIndex: 3 });
+
+      // Convert full-resolution base64 string to Blob URL for fast and secure download
+      const fullResBlobUrl = await base64ToBlobURL(res.image);
+      resultDataUrl = fullResBlobUrl; // Keep for download button
+
+      // Load full-resolution image to downsample for preview
+      const fullImg = new Image();
+      await new Promise((resolve, reject) => {
+        fullImg.onload = resolve;
+        fullImg.onerror = () => reject(new Error('Failed to load upscaled image for preview.'));
+        fullImg.src = fullResBlobUrl;
+      });
+
+      const fullW = fullImg.naturalWidth;
+      const fullH = fullImg.naturalHeight;
+
+      updateProgress({ percent: 95, stage: 'Rendering comparison...', totalStages: 5, stageIndex: 4 });
+
+      // Downsample for comparison preview
+      const previewUpscaledUrl = await downsampleImageIfNeeded(fullImg, 2048);
+
+      // Create scaled original canvas matching preview size
+      const previewImg = new Image();
+      await new Promise((resolve) => {
+        previewImg.onload = resolve;
+        previewImg.src = previewUpscaledUrl;
+      });
+
+      const origCanvas = document.createElement('canvas');
+      origCanvas.width = previewImg.width;
+      origCanvas.height = previewImg.height;
+      const origCtx = origCanvas.getContext('2d');
+      origCtx.imageSmoothingEnabled = true;
+      origCtx.imageSmoothingQuality = 'high';
+      origCtx.drawImage(sourceImage, 0, 0, origCanvas.width, origCanvas.height);
+
+      const previewOriginalUrl = await canvasToBlobURL(origCanvas);
+
+      // Revoke old URLs
+      if (originalObjectURL) URL.revokeObjectURL(originalObjectURL);
+      if (upscaledObjectURL) URL.revokeObjectURL(upscaledObjectURL);
+
+      originalObjectURL = previewOriginalUrl;
+      upscaledObjectURL = previewUpscaledUrl;
+
+      // Load preview images into DOM
+      let loadedCount = 0;
+      const onImageLoaded = () => {
+        loadedCount++;
+        if (loadedCount === 2) {
+          imgOriginal.style.width = previewImg.width + 'px';
+          imgOriginal.style.height = previewImg.height + 'px';
+          imgUpscaled.style.width = previewImg.width + 'px';
+          imgUpscaled.style.height = previewImg.height + 'px';
+          comparisonInner.style.width = previewImg.width + 'px';
+          comparisonInner.style.height = previewImg.height + 'px';
+
+          // Show the result view first so bounding box calculations are non-zero!
+          showView('result');
+
+          // Reset zoom/pan
+          zoom = 1;
+          panX = 0;
+          panY = 0;
+          updateTransform();
+          fitToView(previewImg.width, previewImg.height);
+
+          // Reset slider
+          sliderPos = 50;
+          updateComparisonSlider();
+
+          // Update info
+          infoDims.innerHTML = `${sourceW}x${sourceH} <span class="info-arrow">-></span> ${fullW}x${fullH}`;
+          const totalElapsed = ((Date.now() - processStartTime) / 1000).toFixed(1);
+          infoTime.textContent = totalElapsed + 's';
+          infoScale.textContent = selectedScale + 'x';
+          
+          const typeLabels = {
+            photo: '📷 Photo',
+            anime: '🌸 Anime',
+            noisy: '🔕 Noisy Photo',
+            flat: '⬜ Flat Graphic'
+          };
+          const engineLabel = ' + AI';
+          infoType.textContent = (typeLabels[res.detected_type] || res.detected_type || 'Photo') + engineLabel;
+
+          // If in Auto-Adaptive mode, update sliders dynamically
+          if (selectedPreset === 'auto' && res.auto_settings) {
+            Object.entries(res.auto_settings).forEach(([key, val]) => {
+              if (sliders[key]) {
+                sliders[key].input.value = val;
+                sliders[key].value.textContent = val;
+              }
+            });
+            presetGroup.querySelectorAll('.btn-preset').forEach(b => {
+              b.classList.toggle('active', b.dataset.preset === 'auto');
+            });
+            selectedPreset = 'auto';
+          }
+
+          isProcessing = false;
+          clearInterval(timerInterval);
+          processBtn.classList.remove('processing');
+          $('cancelBtn').style.display = 'none';
+          processBtnText.textContent = '⚡ Upscale Image';
+          processBtn.disabled = false;
+        }
+      };
+
+      const onImageError = () => {
+        handleError('Failed to load upscaled preview images.');
+      };
+
+      imgOriginal.onload = onImageLoaded;
+      imgOriginal.onerror = onImageError;
+      imgUpscaled.onload = onImageLoaded;
+      imgUpscaled.onerror = onImageError;
+
+      imgOriginal.src = previewOriginalUrl;
+      imgUpscaled.src = previewUpscaledUrl;
+
+    } catch (err) {
+      if (creepTimer) {
+        clearInterval(creepTimer);
+      }
+      console.warn('Neural engine failed. Error details:', err);
+      
+      clearInterval(timerInterval);
+      isProcessing = false;
+      
+      // Reset button and view
+      processBtn.classList.remove('processing');
+          $('cancelBtn').style.display = 'none';
+      processBtnText.textContent = '⚡ Upscale Image';
+      processBtn.disabled = false;
+      showView('empty');
+      
+      // Determine if it's a server error vs truly offline
+      const errMsg = err.message || '';
+      const isConnectionError = err instanceof TypeError || 
+                                errMsg.includes('Failed to fetch') || 
+                                errMsg.includes('NetworkError') || 
+                                errMsg.includes('Failed to load') || 
+                                errMsg.includes('abort');
+      
+      if (!isConnectionError) {
+        // Server responded with an error (OOM, credit limits, API errors, etc.) — show the actual reason
+        showToast('⚠️ Upscaling Failed: ' + (errMsg.length > 120 ? errMsg.slice(0, 120) + '...' : errMsg));
+        alert('Upscaling Failed!\n\nError: ' + errMsg);
+      } else {
+        showToast('AI Server Offline! Please run "run_web.bat" to start the GPU server.');
+        alert('AI Server Offline!\n\nThe local GPU server at http://localhost:8080 is not reachable.\n\n1. Make sure "run_web.bat" is running in a terminal.\n2. Refresh this page to establish a connection.\n3. Alternatively, switch the "Upscaling Engine" at the top of the sidebar to "Algorithmic" if you want to run locally in the browser.');
+      }
+    }
+  }
+
+  function startAlgorithmicProcessing() {
+    isProcessing = true;
+
+    // Extract pixel data from source image
+    const srcCanvas = $('srcCanvas');
+    srcCanvas.width = sourceW;
+    srcCanvas.height = sourceH;
+    const ctx = srcCanvas.getContext('2d');
+    ctx.drawImage(sourceImage, 0, 0);
+    const imageData = ctx.getImageData(0, 0, sourceW, sourceH);
+    const buffer = imageData.data.buffer.slice(0); // copy since we transfer
+
+    // Gather options
+    const options = {
+      sharpening: parseInt(sliders.sharpening.input.value),
+      detail: parseInt(sliders.detail.input.value),
+      contrast: parseInt(sliders.contrast.input.value),
+      colorBoost: parseInt(sliders.colorBoost.input.value),
+      denoise: parseInt(sliders.denoise.input.value),
+      grain: parseInt(sliders.grain.input.value),
+      cinematic: parseInt(sliders.cinematic.input.value),
+      preset: selectedPreset
+    };
+
+    // Update UI
+    processBtn.classList.add('processing');
+    processBtnText.textContent = 'Processing...';
+    processBtn.disabled = true;
+    showView('processing');
+
+    processStartTime = Date.now();
+    timerInterval = setInterval(() => {
+      const elapsed = ((Date.now() - processStartTime) / 1000).toFixed(1);
+      progressTime.textContent = elapsed + 's elapsed';
+    }, 100);
+
+    // Send to worker
+    worker.postMessage({
+      type: 'upscale',
+      imageBuffer: buffer,
+      width: sourceW,
+      height: sourceH,
+      scale: selectedScale,
+      options: options
+    }, [buffer]);
+  }
+
+  function updateProgress(msg) {
+    const percent = Math.round(msg.percent);
+    progressPercent.textContent = percent + '%';
+    progressStage.textContent = msg.stage;
+
+    // Update ring
+    const circumference = 2 * Math.PI * 72; // r=72
+    const offset = circumference - (percent / 100) * circumference;
+    progressRing.style.strokeDashoffset = offset;
+
+    // Update overall bar
+    if (msg.totalStages > 0) {
+      const overall = ((msg.stageIndex + percent / 100) / msg.totalStages) * 100;
+      progressBar.style.width = overall + '%';
+    }
+  }
+
+  function canvasToBlobURL(canvas) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(blob => {
+        if (blob) {
+          resolve(URL.createObjectURL(blob));
+        } else {
+          reject(new Error('Failed to generate blob URL from canvas'));
+        }
+      }, 'image/png');
+    });
+  }
+
+  function handleComplete(msg) {
+    isProcessing = false;
+    clearInterval(timerInterval);
+
+    // Reset button
+    processBtn.classList.remove('processing');
+    $('cancelBtn').style.display = 'none';
+    processBtnText.textContent = '⚡ Upscale Image';
+    processBtn.disabled = false;
+
+    // Render result to canvas
+    const resultCanvas = $('resultCanvas');
+    resultCanvas.width = msg.width;
+    resultCanvas.height = msg.height;
+    const ctx = resultCanvas.getContext('2d');
+    const imageData = new ImageData(new Uint8ClampedArray(msg.imageBuffer), msg.width, msg.height);
+    ctx.putImageData(imageData, 0, 0);
+
+    // Convert full resolution result canvas to blob URL for download
+    canvasToBlobURL(resultCanvas).then(async (fullResBlobUrl) => {
+      resultDataUrl = fullResBlobUrl; // Keep for download button
+
+      // Create a temporary image to load the full-res output
+      const fullImg = new Image();
+      await new Promise((resolve) => {
+        fullImg.onload = resolve;
+        fullImg.src = fullResBlobUrl;
+      });
+
+      // Downsample for comparison preview
+      const previewUpscaledUrl = await downsampleImageIfNeeded(fullImg, 2048);
+
+      // Create scaled original canvas matching preview size
+      const previewImg = new Image();
+      await new Promise((resolve) => {
+        previewImg.onload = resolve;
+        previewImg.src = previewUpscaledUrl;
+      });
+
+      const origCanvas = document.createElement('canvas');
+      origCanvas.width = previewImg.width;
+      origCanvas.height = previewImg.height;
+      const origCtx = origCanvas.getContext('2d');
+      origCtx.imageSmoothingEnabled = true;
+      origCtx.imageSmoothingQuality = 'high';
+      origCtx.drawImage(sourceImage, 0, 0, origCanvas.width, origCanvas.height);
+
+      const previewOriginalUrl = await canvasToBlobURL(origCanvas);
+
+      // Revoke old URLs
+      if (originalObjectURL) URL.revokeObjectURL(originalObjectURL);
+      if (upscaledObjectURL) URL.revokeObjectURL(upscaledObjectURL);
+
+      originalObjectURL = previewOriginalUrl;
+      upscaledObjectURL = previewUpscaledUrl;
+
+      // Load preview images into DOM
+      let loadedCount = 0;
+      const onImageLoaded = () => {
+        loadedCount++;
+        if (loadedCount === 2) {
+          imgOriginal.style.width = previewImg.width + 'px';
+          imgOriginal.style.height = previewImg.height + 'px';
+          imgUpscaled.style.width = previewImg.width + 'px';
+          imgUpscaled.style.height = previewImg.height + 'px';
+          comparisonInner.style.width = previewImg.width + 'px';
+          comparisonInner.style.height = previewImg.height + 'px';
+
+          // Show the result view first so bounding box calculations are non-zero!
+          showView('result');
+
+          // Reset zoom/pan
+          zoom = 1;
+          panX = 0;
+          panY = 0;
+          updateTransform();
+          fitToView(previewImg.width, previewImg.height);
+
+          // Reset slider
+          sliderPos = 50;
+          updateComparisonSlider();
+
+          // Update info
+          infoDims.innerHTML = `${sourceW}x${sourceH} <span class="info-arrow">-></span> ${msg.width}x${msg.height}`;
+          const totalElapsed = ((Date.now() - processStartTime) / 1000).toFixed(1);
+          infoTime.textContent = totalElapsed + 's';
+          infoScale.textContent = selectedScale + 'x';
+
+          const typeLabels = {
+            photo: '📷 Photo',
+            graphic: '🎨 Graphic/Text',
+            noisy: '🔕 Noisy Image',
+            flat: '⬜ Flat Graphic'
+          };
+          const engineLabel = selectedEngine === 'neural' ? ' + AI' : '';
+          infoType.textContent = (typeLabels[msg.detectedType] || msg.detectedType || '—') + engineLabel;
+
+          // If in Auto-Adaptive mode, update sliders dynamically to show what was selected
+          if (selectedPreset === 'auto' && msg.autoSettings) {
+            Object.entries(msg.autoSettings).forEach(([key, val]) => {
+              if (sliders[key]) {
+                sliders[key].input.value = val;
+                sliders[key].value.textContent = val;
+              }
+            });
+            // Keep Auto active since updating sliders triggers change
+            presetGroup.querySelectorAll('.btn-preset').forEach(b => {
+              b.classList.toggle('active', b.dataset.preset === 'auto');
+            });
+            selectedPreset = 'auto';
+          }
+        }
+      };
+
+      const onImageError = () => {
+        handleError('Failed to load upscaled preview images.');
+      };
+
+      imgOriginal.onload = onImageLoaded;
+      imgOriginal.onerror = onImageError;
+      imgUpscaled.onload = onImageLoaded;
+      imgUpscaled.onerror = onImageError;
+
+      imgOriginal.src = previewOriginalUrl;
+      imgUpscaled.src = previewUpscaledUrl;
+    }).catch(err => {
+      handleError('Failed to generate full-res blob: ' + err.message);
+    });
+  }
+
+  function handleError(message) {
+    isProcessing = false;
+    clearInterval(timerInterval);
+    processBtn.classList.remove('processing');
+    $('cancelBtn').style.display = 'none';
+    processBtnText.textContent = '⚡ Upscale Image';
+    processBtn.disabled = !sourceImage;
+    showView('empty');
+    showToast('Error: ' + message);
+  }
+
+  // ======================== VIEW MANAGEMENT ==================================
+  function showView(view) {
+    emptyState.style.display = view === 'empty' ? 'flex' : 'none';
+    processingState.classList.toggle('active', view === 'processing');
+    resultState.classList.toggle('active', view === 'result');
+  }
+
+  // ======================== COMPARISON SLIDER ================================
+  function updateComparisonSlider() {
+    compSlider.style.left = sliderPos + '%';
+    imgUpscaled.style.clipPath = `inset(0 0 0 ${sliderPos}%)`;
+    imgOriginal.style.clipPath = `inset(0 ${100 - sliderPos}% 0 0)`;
+  }
+
+  // Mouse events for comparison slider
+  compSlider.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isDraggingSlider = true;
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDraggingSlider) return;
+    const rect = comparisonContainer.getBoundingClientRect();
+    sliderPos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    updateComparisonSlider();
+  });
+
+  document.addEventListener('mouseup', () => {
+    isDraggingSlider = false;
+  });
+
+  // Touch events for comparison slider
+  compSlider.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isDraggingSlider = true;
+  }, { passive: false });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!isDraggingSlider) return;
+    const touch = e.touches[0];
+    const rect = comparisonContainer.getBoundingClientRect();
+    sliderPos = Math.max(0, Math.min(100, ((touch.clientX - rect.left) / rect.width) * 100));
+    updateComparisonSlider();
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    isDraggingSlider = false;
+  });
+
+  // ======================== ZOOM & PAN =======================================
+  function updateTransform() {
+    comparisonInner.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+    zoomLevel.textContent = Math.round(zoom * 100) + '%';
+  }
+
+  function fitToView(imgW, imgH) {
+    const containerRect = comparisonContainer.getBoundingClientRect();
+    const scaleX = containerRect.width / imgW;
+    const scaleY = containerRect.height / imgH;
+    zoom = Math.min(scaleX, scaleY) * 0.9;
+    panX = (containerRect.width - imgW * zoom) / 2;
+    panY = (containerRect.height - imgH * zoom) / 2;
+    updateTransform();
+  }
+
+  // Mouse wheel zoom
+  comparisonContainer.addEventListener('wheel', (e) => {
+    if (!resultState.classList.contains('active')) return;
+    e.preventDefault();
+    const rect = comparisonContainer.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const oldZoom = zoom;
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    zoom = Math.max(0.1, Math.min(5, zoom * delta));
+
+    // Zoom toward mouse position
+    panX = mouseX - (mouseX - panX) * (zoom / oldZoom);
+    panY = mouseY - (mouseY - panY) * (zoom / oldZoom);
+    updateTransform();
+  }, { passive: false });
+
+  // Pan by dragging
+  comparisonContainer.addEventListener('mousedown', (e) => {
+    if (isDraggingSlider) return;
+    if (!resultState.classList.contains('active')) return;
+    isPanning = true;
+    panStartX = e.clientX - panX;
+    panStartY = e.clientY - panY;
+    comparisonContainer.classList.add('grabbing');
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isPanning) return;
+    panX = e.clientX - panStartX;
+    panY = e.clientY - panStartY;
+    updateTransform();
+  });
+
+  document.addEventListener('mouseup', () => {
+    isPanning = false;
+    comparisonContainer.classList.remove('grabbing');
+  });
+
+  // Touch pan
+  let lastTouchDist = 0;
+  comparisonContainer.addEventListener('touchstart', (e) => {
+    if (isDraggingSlider) return;
+    if (!resultState.classList.contains('active')) return;
+    if (e.touches.length === 1) {
+      isPanning = true;
+      panStartX = e.touches[0].clientX - panX;
+      panStartY = e.touches[0].clientY - panY;
+    } else if (e.touches.length === 2) {
+      lastTouchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  }, { passive: true });
+
+  comparisonContainer.addEventListener('touchmove', (e) => {
+    if (isDraggingSlider) return;
+    if (e.touches.length === 1 && isPanning) {
+      panX = e.touches[0].clientX - panStartX;
+      panY = e.touches[0].clientY - panStartY;
+      updateTransform();
+    } else if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      if (lastTouchDist > 0) {
+        const scale = dist / lastTouchDist;
+        zoom = Math.max(0.1, Math.min(5, zoom * scale));
+        updateTransform();
+      }
+      lastTouchDist = dist;
+    }
+  }, { passive: true });
+
+  comparisonContainer.addEventListener('touchend', () => {
+    isPanning = false;
+    lastTouchDist = 0;
+  });
+
+  // Zoom buttons
+  zoomIn.addEventListener('click', () => {
+    zoom = Math.min(5, zoom * 1.25);
+    updateTransform();
+  });
+
+  zoomOut.addEventListener('click', () => {
+    zoom = Math.max(0.1, zoom * 0.8);
+    updateTransform();
+  });
+
+  zoomReset.addEventListener('click', () => {
+    if (!resultState.classList.contains('active')) return;
+    const imgW = parseInt(imgUpscaled.style.width);
+    const imgH = parseInt(imgUpscaled.style.height);
+    if (imgW && imgH) fitToView(imgW, imgH);
+  });
+
+  // ======================== DOWNLOAD =========================================
+  downloadBtn.addEventListener('click', () => {
+    if (!resultDataUrl) return;
+    const a = document.createElement('a');
+    a.href = resultDataUrl;
+    const isJpeg = resultDataUrl.startsWith('data:image/jpeg');
+    const ext = isJpeg ? '.jpg' : '.png';
+    a.download = 'upscaled_' + selectedScale + 'x' + ext;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+
+  // ======================== NEW IMAGE ========================================
+  newBtn.addEventListener('click', () => {
+    // Revoke object URLs to free memory
+    if (sourceImageObjectURL) {
+      URL.revokeObjectURL(sourceImageObjectURL);
+      sourceImageObjectURL = null;
+    }
+    if (originalObjectURL) {
+      URL.revokeObjectURL(originalObjectURL);
+      originalObjectURL = null;
+    }
+    if (upscaledObjectURL) {
+      URL.revokeObjectURL(upscaledObjectURL);
+      upscaledObjectURL = null;
+    }
+
+    sourceImage = null;
+    sourceW = 0;
+    sourceH = 0;
+    resultDataUrl = null;
+    processBtn.disabled = true;
+    fileInput.value = '';
+    outputDims.textContent = '';
+
+    // Reset upload zone
+    uploadContent.innerHTML = `
+      <div class="upload-icon">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <div class="upload-text">Drop image here</div>
+      <div class="upload-subtext">or click to browse • JPG, PNG, WebP, BMP</div>
+    `;
+
+    showView('empty');
+  });
+
+  // ======================== TOAST ============================================
+  function showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    $('toastContainer').appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+  }
+
+  // ======================== INIT =============================================
+  initWorker();
+  showView('empty');
+  applyPresetToSliders('auto');
+
+})();
+</script>
+</body>
+</html>

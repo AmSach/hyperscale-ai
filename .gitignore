@@ -1,0 +1,10 @@
+venv/
+models/*.pth
+models/*.onnx
+models/*.safetensors
+__pycache__/
+*.pyc
+.env
+node_modules/
+.vercel/
+*.log
