@@ -1560,14 +1560,15 @@ def upscale_image(img_bytes, model_name, target_scale, options):
         'percent': 5
     })
     
-    # Save input image for debugging/verification
-    try:
-        input_save_path = os.path.join(DIR, "last_input.png")
-        with open(input_save_path, "wb") as f:
-            f.write(img_bytes)
-        print(f"[DEBUG] Saved last input image to {input_save_path}")
-    except Exception as e:
-        print(f"[WARNING] Failed to save debug input image: {e}")
+    # Save input image for debugging only when DEBUG env var is set
+    if os.environ.get('DEBUG'):
+        try:
+            input_save_path = os.path.join(DIR, "last_input.png")
+            with open(input_save_path, "wb") as f:
+                f.write(img_bytes)
+            print(f"[DEBUG] Saved last input image to {input_save_path}")
+        except Exception as e:
+            print(f"[WARNING] Failed to save debug input image: {e}")
         
     # --- 1. Decode input ---
     input_img = Image.open(io.BytesIO(img_bytes)).convert('RGB')
@@ -1771,8 +1772,14 @@ def upscale_image(img_bytes, model_name, target_scale, options):
         # Auto model selection on GPU
         if model_name == 'auto':
             if detected_type == 'anime':
-                model_name = 'realesrgan-x4plus-anime'
-                print("[AUTO-MODEL] Selected Anime Model (realesrgan-x4plus-anime)")
+                # Check if anime weight is present; fall back to general if not
+                anime_path = os.path.join(MODELS_DIR, 'RealESRGAN_x4plus_anime_6B.pth')
+                if os.path.exists(anime_path):
+                    model_name = 'realesrgan-x4plus-anime'
+                    print("[AUTO-MODEL] Selected Anime Model (realesrgan-x4plus-anime)")
+                else:
+                    model_name = 'realesr-general-x4v3'
+                    print("[AUTO-MODEL] Anime weight not found — falling back to realesr-general-x4v3")
             elif options.get('preset') == 'maximum':
                 model_name = 'hat-realesrgan-blend'
                 print("[AUTO-MODEL] Selected SOTA Model Ensemble Blend (hat-realesrgan-blend) for Maximum detail")
@@ -2184,13 +2191,14 @@ def upscale_image(img_bytes, model_name, target_scale, options):
     print("[RUN] Encoding to base64 string...")
     result_b64 = base64.b64encode(result_bytes).decode()
     
-    # Save output image for debugging/verification
-    try:
-        output_save_path = os.path.join(DIR, "last_output.png")
-        output_pil.save(output_save_path, format="PNG")
-        print(f"[DEBUG] Saved last output image to {output_save_path}")
-    except Exception as e:
-        print(f"[WARNING] Failed to save debug output image: {e}")
+    # Save output image only in debug mode
+    if os.environ.get('DEBUG'):
+        try:
+            output_save_path = os.path.join(DIR, "last_output.png")
+            output_pil.save(output_save_path, format="PNG")
+            print(f"[DEBUG] Saved last output image to {output_save_path}")
+        except Exception as e:
+            print(f"[WARNING] Failed to save debug output image: {e}")
         
     elapsed = time.time() - start
     print(f"[DONE] {out_w}x{out_h} in {elapsed:.1f}s ({len(result_bytes)/1024/1024:.1f} MB)")
@@ -2330,7 +2338,7 @@ class Handler(SimpleHTTPRequestHandler):
                 'device': body.get('device', 'cuda'),
                 'replicate_api_key': body.get('replicate_api_key', ''),
                 'color_match': body.get('color_match', False),
-                'sd_refine': body.get('sd_refine', True),
+                'sd_refine': body.get('sd_refine', False),  # off by default — user must enable explicitly
                 'sd_prompt': body.get('sd_prompt') or 'raw photo, highly detailed, sharp focus, 8k, skin pores, fabric texture, realistic skin texture, dslr, 35mm lens, film grain',
                 'sd_neg_prompt': body.get('sd_neg_prompt') or 'airbrushed, plastic, waxy, CGI, 3D, render, digital art, smooth skin, oily skin, blurry, low quality, cartoon, painting, drawing, illustration',
                 'sd_strength': body.get('sd_strength', 30),

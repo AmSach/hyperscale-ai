@@ -70,5 +70,22 @@ def check_and_install():
 
     print("\n[SUCCESS] All dependencies checked and installed successfully!")
 
+    # Verify PyTorch has CUDA support — a CPU-only build silently passes import checks
+    print("\n=== Verifying CUDA / GPU Support ===")
+    try:
+        import torch
+        if torch.cuda.is_available():
+            gpu = torch.cuda.get_device_name(0)
+            vram = torch.cuda.get_device_properties(0).total_memory / 1024**3
+            print(f"[OK] CUDA available — GPU: {gpu} ({vram:.1f} GB VRAM)")
+        else:
+            print("[WARNING] PyTorch installed but CUDA is NOT available.")
+            print("          This usually means a CPU-only PyTorch build was installed.")
+            print("          Upscaling will work but will be very slow on CPU.")
+            print("          To fix: pip uninstall torch torchvision -y")
+            print("          Then: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121")
+    except Exception as e:
+        print(f"[WARNING] Could not verify CUDA: {e}")
+
 if __name__ == "__main__":
     check_and_install()

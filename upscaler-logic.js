@@ -270,7 +270,7 @@
           sd_prompt: document.getElementById('sdPromptInput') ? document.getElementById('sdPromptInput').value : '',
           sd_neg_prompt: document.getElementById('sdNegPromptInput') ? document.getElementById('sdNegPromptInput').value : '',
           sharpening: document.getElementById('sharpSlider') ? parseInt(document.getElementById('sharpSlider').value, 10) : 0,
-          detail: 0, 
+          detail: document.getElementById('sharpSlider') ? parseInt(document.getElementById('sharpSlider').value, 10) : 0,
           contrast: document.getElementById('contrastSlider') ? parseInt(document.getElementById('contrastSlider').value, 10) : 0,
           colorBoost: document.getElementById('saturationSlider') ? parseInt(document.getElementById('saturationSlider').value, 10) : 0,
           grain: document.getElementById('grainSlider') ? parseInt(document.getElementById('grainSlider').value, 10) : 0
@@ -640,12 +640,12 @@
       const url = URL.createObjectURL(blob);
       a.href = url;
       const name = selectedFile ? selectedFile.name.replace(/\.[^.]+$/, '') : 'poster';
-      a.download = `${name}_poster_${currentScale}x.png`;
+      a.download = `${name}_upscaled_${currentScale}x.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast('Poster print saved to Downloads! 🖨️', 'success');
+      showToast('Saved to downloads.', 'success');
     }, 'image/png');
   });
 
