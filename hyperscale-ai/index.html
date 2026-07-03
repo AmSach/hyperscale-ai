@@ -3,251 +3,176 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HyperScale AI — i was mad at topaz so i built this</title>
-  <meta name="description" content="free image upscaler that runs on your GPU. HAT-GAN + Stable Diffusion. beats topaz. no account, no cloud, no $200/year.">
+  <title>HyperScale AI — summer project by aman</title>
+  <meta name="description" content="i spent my summer building a free image upscaler that actually works. runs on your GPU. no account. beats topaz.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Caveat:wght@600;700&family=DM+Sans:wght@400;500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=DM+Sans:wght@400;500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-  <!-- ░░ NOISE GRAIN OVERLAY ░░ -->
   <div class="grain" aria-hidden="true"></div>
 
-  <!-- ░░ NAVBAR ░░ -->
+  <!-- just a casual top bar. no logo. no brand. -->
   <nav class="nav">
-    <a href="#" class="nav-brand">
-      <span class="nav-brand-box">HS</span>
-      HyperScale<span class="nav-ai">AI</span>
-    </a>
-    <div class="nav-links">
-      <a href="#compare">see it</a>
-      <a href="#why">why</a>
-      <a href="#install" class="nav-install">install →</a>
-    </div>
+    <span class="nav-name">hyperscale ai <span class="nav-sub">— summer project, july 2026</span></span>
+    <a href="#install" class="nav-install">install it</a>
   </nav>
 
-  <!-- ░░ HERO — NEWSPAPER MASTHEAD STYLE ░░ -->
-  <header class="masthead">
-    <div class="masthead-eyebrow">
-      <span class="dot-live"></span>
-      running locally on your GPU right now (well, it will be)
-    </div>
+  <!-- THE WHOLE PAGE IS BASICALLY ONE BIG NOTE -->
+  <main class="page">
 
-    <div class="masthead-grid">
-      <div class="masthead-left">
-        <div class="masthead-kicker">GPU IMAGE UPSCALER · FREE · OFFLINE · OPEN SOURCE</div>
-        <h1 class="masthead-headline">
-          topaz charges<br>
-          <span class="headline-strike">$199/yr</span><br>
-          for this.
+    <!-- intro — written like a person, not a company -->
+    <section class="intro">
+      <div class="intro-inner">
+        <div class="tag">by aman sachan · free · open source · MIT</div>
+
+        <h1>
+          i got fed up with topaz.<br>
+          so i built this.
         </h1>
-        <p class="masthead-deck">
-          i got sick of paying for software that turned portraits into
-          porcelain dolls. so i wired up HAT-GAN transformers and
-          Stable Diffusion to run offline, on your card, for free.
+
+        <p class="intro-body">
+          topaz photo ai is $200 a year and it makes portrait skin look like plastic.
+          every single time. so i spent a few weekends wiring up actual state-of-the-art
+          vision transformers to run directly on your GPU, offline, for free.
+          this is that.
         </p>
 
-        <!-- install terminal -->
-        <div class="terminal-block" id="install">
-          <div class="terminal-head">
+        <div class="intro-compare-label">here's what it actually does to a photo:</div>
+      </div>
+    </section>
+
+    <!-- the comparison. biggest thing on the page. -->
+    <section class="compare-section">
+      <div class="comp-outer">
+        <div class="comp-container" id="compContainer">
+          <div class="comp-after">
+            <img src="after.jpg" alt="after — upscaled 4x with HyperScale">
+          </div>
+          <div class="comp-before" id="layerBefore">
+            <img src="before.jpg" alt="before — original photo">
+          </div>
+          <div class="comp-handle" id="sliderHandle">
+            <div class="handle-line"></div>
+            <div class="handle-knob">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </div>
+          </div>
+          <div class="comp-label comp-label-l">before</div>
+          <div class="comp-label comp-label-r">after (4x)</div>
+        </div>
+        <p class="comp-note">← drag this. zoom in on the skin. the pores are real.</p>
+      </div>
+    </section>
+
+    <!-- what it uses — written casually -->
+    <section class="what-section">
+      <div class="what-inner">
+
+        <div class="what-note">
+          <div class="note-tape"></div>
+          <div class="note-head">how it works</div>
+          <p>
+            the default engine is <strong>HAT-GAN</strong> — a vision transformer that looks at
+            big patches of the image at once and figures out what texture <em>should</em> be there
+            based on context. not averaging. actually reasoning about it.
+            portraits look like portraits, not wax figures.
+          </p>
+          <p>
+            for 8x+ scales there's a <strong>Stable Diffusion ControlNet Tile</strong> pass that
+            synthesizes micro-textures (skin pores, fabric weave, leaf detail).
+            the trick is frequency separation — keep the original's colors and shapes,
+            only inject SD's high-frequency texture layer. so it doesn't warp your photo.
+          </p>
+          <p>
+            faces get a separate <strong>GFPGAN v1.4</strong> pass. the SD pass is
+            masked away from faces entirely so it doesn't touch the eyes or mouth.
+          </p>
+          <p>
+            works on <strong>6GB VRAM GPUs</strong>. tiles dynamically based on
+            how much free VRAM you actually have right now, not just what your card has total.
+            3 minutes for an 8K output. i re-ordered the pipeline to make that possible.
+          </p>
+        </div>
+
+        <div class="quick-facts">
+          <div class="fact">
+            <span class="fact-emoji">🖥️</span>
+            <span>runs 100% on your machine</span>
+          </div>
+          <div class="fact">
+            <span class="fact-emoji">🔒</span>
+            <span>no upload, no account, no cloud</span>
+          </div>
+          <div class="fact">
+            <span class="fact-emoji">💸</span>
+            <span>free. topaz is $199/yr. this is $0.</span>
+          </div>
+          <div class="fact">
+            <span class="fact-emoji">⚡</span>
+            <span>opens at localhost:8080. full before/after slider.</span>
+          </div>
+          <div class="fact">
+            <span class="fact-emoji">🧠</span>
+            <span>HAT-GAN + SD ControlNet Tile + GFPGAN</span>
+          </div>
+          <div class="fact">
+            <span class="fact-emoji">🃏</span>
+            <span>also has a CLI if you're into that</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- install -->
+    <section class="install-section" id="install">
+      <div class="install-inner">
+        <h2>how to install</h2>
+
+        <div class="terminal">
+          <div class="terminal-bar">
             <span class="t-dot" style="background:#ff5f57"></span>
             <span class="t-dot" style="background:#febc2e"></span>
             <span class="t-dot" style="background:#28c840"></span>
-            <span class="t-label">powershell</span>
+            <span class="t-title">powershell</span>
           </div>
           <div class="terminal-body">
             <span class="t-prompt">$</span>
             <code id="installCmd">python -c "import urllib.request, subprocess; open('install.ps1', 'wb').write(urllib.request.urlopen('https://hyperscale-ai-amsachs-projects.vercel.app/install.ps1').read()); subprocess.run(['powershell', '-ExecutionPolicy', 'Bypass', '-File', 'install.ps1'])"</code>
           </div>
-          <button class="copy-btn" id="copyBtn" onclick="copyCmd()">copy</button>
+          <button id="copyBtn" class="copy-btn" onclick="copyCmd()">copy</button>
         </div>
 
-        <div class="alt-install">
-          or → <a href="install.bat" download>download install.bat</a> and double-click it. same thing.
-        </div>
-      </div>
-
-      <div class="masthead-right">
-        <!-- before after comparison -->
-        <div class="comp-frame">
-          <div class="comp-tag comp-tag-before">before</div>
-          <div class="comp-tag comp-tag-after">after (4x HAT)</div>
-          <div class="comp-container" id="compContainer">
-            <div class="comp-after">
-              <img src="after.jpg" alt="upscaled">
-            </div>
-            <div class="comp-before" id="layerBefore">
-              <img src="before.jpg" alt="original">
-            </div>
-            <div class="comp-handle" id="sliderHandle">
-              <div class="handle-bar"></div>
-              <div class="handle-knob">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
-              </div>
-            </div>
-          </div>
-          <p class="comp-hint">← drag</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- ticker tape -->
-    <div class="ticker-wrap">
-      <div class="ticker">
-        <span>HAT-GAN TRANSFORMER</span>
-        <span class="ticker-sep">◆</span>
-        <span>STABLE DIFFUSION CONTROLNET TILE</span>
-        <span class="ticker-sep">◆</span>
-        <span>GFPGAN V1.4 FACE RESTORE</span>
-        <span class="ticker-sep">◆</span>
-        <span>DYNAMIC VRAM TILING</span>
-        <span class="ticker-sep">◆</span>
-        <span>RUNS ON YOUR MACHINE</span>
-        <span class="ticker-sep">◆</span>
-        <span>FREE. MIT LICENSE.</span>
-        <span class="ticker-sep">◆</span>
-        <span>HAT-GAN TRANSFORMER</span>
-        <span class="ticker-sep">◆</span>
-        <span>STABLE DIFFUSION CONTROLNET TILE</span>
-        <span class="ticker-sep">◆</span>
-        <span>GFPGAN V1.4 FACE RESTORE</span>
-        <span class="ticker-sep">◆</span>
-        <span>DYNAMIC VRAM TILING</span>
-        <span class="ticker-sep">◆</span>
-        <span>RUNS ON YOUR MACHINE</span>
-        <span class="ticker-sep">◆</span>
-        <span>FREE. MIT LICENSE.</span>
-        <span class="ticker-sep">◆</span>
-      </div>
-    </div>
-  </header>
-
-  <main>
-
-    <!-- ░░ COMPARE FULL WIDTH ░░ -->
-    <section class="section-compare" id="compare">
-      <div class="section-label">// BEFORE & AFTER — drag the handle</div>
-      <div class="comp-fullwidth-frame">
-        <div class="comp-fullwidth" id="compFull">
-          <div class="comp-full-after">
-            <img src="after.jpg" alt="upscaled result">
-            <span class="fw-tag fw-after">hyperscale 4x</span>
-          </div>
-          <div class="comp-full-before" id="layerFull">
-            <img src="before.jpg" alt="original">
-            <span class="fw-tag fw-before">original</span>
-          </div>
-          <div class="comp-full-handle" id="handleFull">
-            <div class="fw-bar"></div>
-            <div class="fw-knob">↔</div>
-          </div>
-        </div>
-      </div>
-      <p class="compare-caption">zoom in on the skin texture. the pores are real.</p>
-    </section>
-
-    <!-- ░░ WHY — ZINE LAYOUT ░░ -->
-    <section class="section-why" id="why">
-
-      <div class="why-header">
-        <div class="why-number">01</div>
-        <div>
-          <div class="section-label">// THE ACTUAL REASON</div>
-          <h2 class="why-title">why does this look better than topaz?</h2>
-        </div>
-      </div>
-
-      <div class="why-grid">
-
-        <article class="why-card why-card--dark">
-          <div class="why-card-num">A</div>
-          <h3>HAT sees the whole picture</h3>
-          <p>
-            normal upscalers (RealESRGAN, Topaz default) learn average textures
-            from training data and paste them everywhere. skin becomes porcelain.
-            fabric loses weave. hair clumps.
-          </p>
-          <p>
-            HAT-GAN uses self-attention — same core idea as GPT, but for pixels.
-            it looks at wide patches and reasons about what <em>belongs</em> there
-            based on context. not averaging. actually thinking.
-          </p>
-          <div class="why-card-tag">HAT-GAN Hybrid Attention Transformer</div>
-        </article>
-
-        <article class="why-card why-card--yellow">
-          <div class="why-card-num">B</div>
-          <h3>stable diffusion without the warping</h3>
-          <p>
-            SD is generative — ask it for texture and it also moves your eyebrows
-            and shifts the lighting. terrible for photos.
-          </p>
-          <p>
-            the fix: frequency separation. keep the original's low frequencies
-            (your colors, shapes, light). only inject SD's high-frequency
-            micro-texture layer. pores without color drift.
-          </p>
-          <div class="why-card-tag">Frequency Separation · ControlNet Tile</div>
-        </article>
-
-        <article class="why-card why-card--outline">
-          <div class="why-card-num">C</div>
-          <h3>faces stay human</h3>
-          <p>
-            detects every face before the SD pass. builds a feathered mask around
-            it (+30% padding for hair). blends SD output <em>around</em> faces
-            not on them. GFPGAN v1.4 pass restores eye symmetry and lip shape
-            separately.
-          </p>
-          <div class="why-card-tag">GFPGAN v1.4 · Face Detection</div>
-        </article>
-
-        <article class="why-card why-card--outline">
-          <div class="why-card-num">D</div>
-          <h3>3 minutes not 30</h3>
-          <p>
-            original pipeline ran SD after the full upscale — huge image, tons of
-            tiles, forever. i figured out SD doesn't care about absolute
-            resolution, just local structure. so now it runs <em>before</em> the
-            final HAT pass at the smaller intermediate size.
-          </p>
-          <p>same quality. 3 minutes instead of 30. figured that out at 1am.</p>
-          <div class="why-card-tag">Dynamic VRAM Tiling · 6GB+ GPUs</div>
-        </article>
-
-      </div>
-    </section>
-
-    <!-- ░░ AMAN'S NOTE ░░ -->
-    <section class="note-section">
-      <div class="aman-note">
-        <div class="note-tape"></div>
-        <div class="note-from">— aman, 3am, bedroom</div>
-        <p>
-          "i spent like 3 weekends on this because i had a photo i really wanted to print large
-          and topaz made it look like a video game cutscene from 2009. then i just kept going
-          because the frequency separation thing was genuinely interesting to figure out.
-          anyway it's free, MIT license, do whatever."
+        <p class="install-note">
+          or just <a href="install.bat" download>download install.bat</a> and double-click it.
+          the installer handles everything — python, venv, pytorch, CUDA, all the model weights.
+          first run downloads a few GB of models. after that it's instant.
         </p>
-        <a href="https://github.com/AmSach/hyperscale-ai" target="_blank" class="note-link">github →</a>
+
+        <p class="install-note">
+          then run <code class="inline-code">run_server.bat</code> and open
+          <code class="inline-code">localhost:8080</code>.
+        </p>
+
+        <div class="source-link-row">
+          <a href="https://github.com/AmSach/hyperscale-ai" target="_blank" class="source-btn">
+            view source on github →
+          </a>
+        </div>
       </div>
     </section>
+
+    <!-- honest footer — no "studio" -->
+    <footer class="footer">
+      <p>made by aman sachan · summer 2026 · mit license · do whatever</p>
+      <p class="footer-small">not affiliated with or competing against topaz. just a kid who was annoyed.</p>
+    </footer>
 
   </main>
-
-  <footer class="footer">
-    <div class="footer-left">
-      <span class="footer-brand">HyperScale AI</span>
-      <span>MIT License · built by <a href="https://github.com/AmSach" target="_blank">Aman Sachan</a></span>
-    </div>
-    <div class="footer-right">
-      <a href="install.bat" download>install.bat</a>
-      <a href="https://github.com/AmSach/hyperscale-ai" target="_blank">source</a>
-    </div>
-  </footer>
 
 <script>
 function copyCmd() {
@@ -255,40 +180,31 @@ function copyCmd() {
   navigator.clipboard.writeText(txt).then(() => {
     const btn = document.getElementById('copyBtn');
     btn.textContent = 'copied!';
-    btn.style.background = '#1b7a4a';
-    setTimeout(() => { btn.textContent = 'copy'; btn.style.background = ''; }, 2000);
+    setTimeout(() => btn.textContent = 'copy', 2000);
   });
 }
 
-// slider logic — works for both sliders on page
-function initSlider(containerId, layerId, handleId) {
-  const container = document.getElementById(containerId);
-  const layer = document.getElementById(layerId);
-  const handle = document.getElementById(handleId);
-  if (!container || !layer || !handle) return;
+document.addEventListener('DOMContentLoaded', () => {
+  const container = document.getElementById('compContainer');
+  const layer     = document.getElementById('layerBefore');
+  const handle    = document.getElementById('sliderHandle');
+  if (!container) return;
 
   let dragging = false;
-
-  function move(e) {
+  const move = (e) => {
     if (!dragging) return;
     const rect = container.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    let pct = Math.min(98, Math.max(2, ((clientX - rect.left) / rect.width) * 100));
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const pct = Math.min(97, Math.max(3, ((cx - rect.left) / rect.width) * 100));
     layer.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
     handle.style.left = pct + '%';
-  }
-
+  };
   container.addEventListener('mousedown', () => dragging = true);
   container.addEventListener('touchstart', () => dragging = true, { passive: true });
   window.addEventListener('mouseup', () => dragging = false);
   window.addEventListener('touchend', () => dragging = false);
   window.addEventListener('mousemove', move);
   window.addEventListener('touchmove', move, { passive: true });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  initSlider('compContainer', 'layerBefore', 'sliderHandle');
-  initSlider('compFull', 'layerFull', 'handleFull');
 });
 </script>
 </body>
