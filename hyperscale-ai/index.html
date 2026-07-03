@@ -1,166 +1,295 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HyperScale AI Studio — Extreme Generative GPU Super-Resolution</title>
-    <meta name="description" content="Transform low-resolution photos into 8K masterpieces. Runs 100% locally on your NVIDIA GPU combining RealESRGAN, HAT, and Stable Diffusion ControlNet Tile.">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HyperScale AI — i was mad at topaz so i built this</title>
+  <meta name="description" content="free image upscaler that runs on your GPU. HAT-GAN + Stable Diffusion. beats topaz. no account, no cloud, no $200/year.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Caveat:wght@600;700&family=DM+Sans:wght@400;500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Navigation -->
-    <header class="navbar">
-        <div class="nav-container">
-            <a href="#" class="brand">
-                <div class="brand-logo">HS</div>
-                <span class="brand-text">HyperScale<span class="highlight">AI</span></span>
-            </a>
-            <nav class="nav-links">
-                <a href="#showcase">Showcase</a>
-                <a href="#features">Architecture</a>
-                <a href="#install" class="nav-cta motion-btn">Install Engine</a>
-            </nav>
+
+  <!-- ░░ NOISE GRAIN OVERLAY ░░ -->
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- ░░ NAVBAR ░░ -->
+  <nav class="nav">
+    <a href="#" class="nav-brand">
+      <span class="nav-brand-box">HS</span>
+      HyperScale<span class="nav-ai">AI</span>
+    </a>
+    <div class="nav-links">
+      <a href="#compare">see it</a>
+      <a href="#why">why</a>
+      <a href="#install" class="nav-install">install →</a>
+    </div>
+  </nav>
+
+  <!-- ░░ HERO — NEWSPAPER MASTHEAD STYLE ░░ -->
+  <header class="masthead">
+    <div class="masthead-eyebrow">
+      <span class="dot-live"></span>
+      running locally on your GPU right now (well, it will be)
+    </div>
+
+    <div class="masthead-grid">
+      <div class="masthead-left">
+        <div class="masthead-kicker">GPU IMAGE UPSCALER · FREE · OFFLINE · OPEN SOURCE</div>
+        <h1 class="masthead-headline">
+          topaz charges<br>
+          <span class="headline-strike">$199/yr</span><br>
+          for this.
+        </h1>
+        <p class="masthead-deck">
+          i got sick of paying for software that turned portraits into
+          porcelain dolls. so i wired up HAT-GAN transformers and
+          Stable Diffusion to run offline, on your card, for free.
+        </p>
+
+        <!-- install terminal -->
+        <div class="terminal-block" id="install">
+          <div class="terminal-head">
+            <span class="t-dot" style="background:#ff5f57"></span>
+            <span class="t-dot" style="background:#febc2e"></span>
+            <span class="t-dot" style="background:#28c840"></span>
+            <span class="t-label">powershell</span>
+          </div>
+          <div class="terminal-body">
+            <span class="t-prompt">$</span>
+            <code id="installCmd">python -c "import urllib.request, subprocess; open('install.ps1', 'wb').write(urllib.request.urlopen('https://hyperscale-ai-amsachs-projects.vercel.app/install.ps1').read()); subprocess.run(['powershell', '-ExecutionPolicy', 'Bypass', '-File', 'install.ps1'])"</code>
+          </div>
+          <button class="copy-btn" id="copyBtn" onclick="copyCmd()">copy</button>
         </div>
-    </header>
 
-    <!-- Hero Section -->
-    <main>
-        <section class="hero reveal-stagger">
-            <div class="hero-content">
-                <div class="pill-badge">
-                    <span class="pulse-dot"></span>
-                    <span>V2.5 Studio Release — Local NVIDIA Engine</span>
-                </div>
-                <h1 class="hero-title">Extreme Image Upscaling Powered by <span class="gradient-text">Generative AI</span></h1>
-                <p class="hero-subtitle">
-                    Reconstruct realistic skin pores, DSLR grain, and microscopic fabric weave at up to 127 Megapixels. Runs 100% locally on consumer GPUs with zero cloud subscriptions.
-                </p>
-                
-                <div class="cta-group" id="install">
-                    <!-- Manus / Motion-Primitives Terminal Command -->
-                    <div class="terminal-card">
-                        <div class="terminal-top">
-                            <div class="traffic-lights">
-                                <span class="tl red"></span>
-                                <span class="tl yellow"></span>
-                                <span class="tl green"></span>
-                            </div>
-                            <span class="terminal-label">Windows PowerShell One-Liner</span>
-                        </div>
-                        <div class="terminal-body">
-                            <code id="installCommand">python -c "import urllib.request, subprocess; open('install.ps1', 'wb').write(urllib.request.urlopen('https://hyperscale-ai-amsachs-projects.vercel.app/install.ps1').read()); subprocess.run(['powershell', '-ExecutionPolicy', 'Bypass', '-File', 'install.ps1'])"</code>
-                            <button class="copy-btn motion-btn" id="copyBtn" onclick="copyInstallCmd()">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                <span>Copy Command</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Direct Installer Option -->
-                    <div class="download-alt">
-                        <span>Prefer an executable file?</span>
-                        <a href="install.bat" download class="btn-download motion-link">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                            Download One-Click Installer (.bat)
-                        </a>
-                    </div>
-                </div>
-
-                <div class="stats-row">
-                    <div class="stat-box">
-                        <span class="stat-num">100%</span>
-                        <span class="stat-label">Local Private VRAM</span>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-num">8x+</span>
-                        <span class="stat-label">Extreme Scale</span>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-num">0.0ms</span>
-                        <span class="stat-label">Cloud Latency</span>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-num">GFPGAN</span>
-                        <span class="stat-label">v1.4 Face Shield</span>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Interactive Motion-Primitives Drag Comparison Slider -->
-        <section class="showcase" id="showcase">
-            <div class="section-header">
-                <div class="pill-badge-sub">Real Synthesis Comparison</div>
-                <h2>Interactive Neural Reconstruction</h2>
-                <p>Drag the interactive handle left or right to inspect how Context-Aware Multi-Pass synthesis reconstructs true photographic fidelity compared to standard low-res input.</p>
-            </div>
-            
-            <div class="slider-wrapper">
-                <div class="img-comp-container" id="compContainer">
-                    <!-- After Image (Background layer) -->
-                    <div class="img-comp-layer layer-after">
-                        <img src="after.jpg" alt="Generative 8x Upscale Full Frame">
-                        <span class="img-tag tag-after">HyperScale Generative 8x (Full Frame)</span>
-                    </div>
-                    <!-- Before Image (Clipping layer via clip-path) -->
-                    <div class="img-comp-layer layer-before" id="layerBefore">
-                        <img src="before.jpg" alt="Original Low-Res Input Full Frame">
-                        <span class="img-tag tag-before">Original Input (Full Uncropped)</span>
-                    </div>
-                    <!-- Draggable Handle -->
-                    <div class="slider-handle" id="sliderHandle">
-                        <div class="handle-line"></div>
-                        <div class="handle-circle">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                        </div>
-                    </div>
-                </div>
-                <div class="slider-hint">💡 Hover and drag across the image to explore high-frequency texture synthesis.</div>
-            </div>
-        </section>
-
-        <!-- Manus / Realtime Colors Engineered Grid -->
-        <section class="features" id="features">
-            <div class="section-header">
-                <h2>Engineered for Uncompromising Fidelity</h2>
-                <p>Designed from the ground up to conquer VRAM limitations while producing pristine studio output.</p>
-            </div>
-            <div class="features-grid">
-                <div class="feature-card motion-card">
-                    <div class="feature-icon">✨</div>
-                    <h3>Multi-Pass Context Injection</h3>
-                    <p>Instead of stretching massive images blindly, our engine pauses at 4x to synthesize authentic micro-textures before executing the final mathematical stretch.</p>
-                </div>
-                <div class="feature-card motion-card">
-                    <div class="feature-icon">🛡️</div>
-                    <h3>GFPGAN v1.4 Face Protection</h3>
-                    <p>Automatic facial landmark detection isolates eyes and lips, applying dedicated neural recovery to prevent diffusion warping while keeping portraits crystalline.</p>
-                </div>
-                <div class="feature-card motion-card">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Dynamic VRAM Tiling</h3>
-                    <p>Optimized with attention slicing, VAE tiling, and sequential CPU offloading. Comfortably processes massive 8K canvases on standard consumer 6GB/8GB GPUs.</p>
-                </div>
-                <div class="feature-card motion-card">
-                    <div class="feature-icon">🎛️</div>
-                    <h3>Frequency Separation Blend</h3>
-                    <p>Our dynamic high-pass frequency filter transfers only high-frequency textures while keeping 100% of your original image's lighting, geometry, and color grading intact.</p>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="footer-content">
-            <p>&copy; 2026 HyperScale AI Studio. Designed for professional generative creators.</p>
+        <div class="alt-install">
+          or → <a href="install.bat" download>download install.bat</a> and double-click it. same thing.
         </div>
-    </footer>
+      </div>
 
-    <script src="script.js"></script>
+      <div class="masthead-right">
+        <!-- before after comparison -->
+        <div class="comp-frame">
+          <div class="comp-tag comp-tag-before">before</div>
+          <div class="comp-tag comp-tag-after">after (4x HAT)</div>
+          <div class="comp-container" id="compContainer">
+            <div class="comp-after">
+              <img src="after.jpg" alt="upscaled">
+            </div>
+            <div class="comp-before" id="layerBefore">
+              <img src="before.jpg" alt="original">
+            </div>
+            <div class="comp-handle" id="sliderHandle">
+              <div class="handle-bar"></div>
+              <div class="handle-knob">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </div>
+            </div>
+          </div>
+          <p class="comp-hint">← drag</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ticker tape -->
+    <div class="ticker-wrap">
+      <div class="ticker">
+        <span>HAT-GAN TRANSFORMER</span>
+        <span class="ticker-sep">◆</span>
+        <span>STABLE DIFFUSION CONTROLNET TILE</span>
+        <span class="ticker-sep">◆</span>
+        <span>GFPGAN V1.4 FACE RESTORE</span>
+        <span class="ticker-sep">◆</span>
+        <span>DYNAMIC VRAM TILING</span>
+        <span class="ticker-sep">◆</span>
+        <span>RUNS ON YOUR MACHINE</span>
+        <span class="ticker-sep">◆</span>
+        <span>FREE. MIT LICENSE.</span>
+        <span class="ticker-sep">◆</span>
+        <span>HAT-GAN TRANSFORMER</span>
+        <span class="ticker-sep">◆</span>
+        <span>STABLE DIFFUSION CONTROLNET TILE</span>
+        <span class="ticker-sep">◆</span>
+        <span>GFPGAN V1.4 FACE RESTORE</span>
+        <span class="ticker-sep">◆</span>
+        <span>DYNAMIC VRAM TILING</span>
+        <span class="ticker-sep">◆</span>
+        <span>RUNS ON YOUR MACHINE</span>
+        <span class="ticker-sep">◆</span>
+        <span>FREE. MIT LICENSE.</span>
+        <span class="ticker-sep">◆</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ░░ COMPARE FULL WIDTH ░░ -->
+    <section class="section-compare" id="compare">
+      <div class="section-label">// BEFORE & AFTER — drag the handle</div>
+      <div class="comp-fullwidth-frame">
+        <div class="comp-fullwidth" id="compFull">
+          <div class="comp-full-after">
+            <img src="after.jpg" alt="upscaled result">
+            <span class="fw-tag fw-after">hyperscale 4x</span>
+          </div>
+          <div class="comp-full-before" id="layerFull">
+            <img src="before.jpg" alt="original">
+            <span class="fw-tag fw-before">original</span>
+          </div>
+          <div class="comp-full-handle" id="handleFull">
+            <div class="fw-bar"></div>
+            <div class="fw-knob">↔</div>
+          </div>
+        </div>
+      </div>
+      <p class="compare-caption">zoom in on the skin texture. the pores are real.</p>
+    </section>
+
+    <!-- ░░ WHY — ZINE LAYOUT ░░ -->
+    <section class="section-why" id="why">
+
+      <div class="why-header">
+        <div class="why-number">01</div>
+        <div>
+          <div class="section-label">// THE ACTUAL REASON</div>
+          <h2 class="why-title">why does this look better than topaz?</h2>
+        </div>
+      </div>
+
+      <div class="why-grid">
+
+        <article class="why-card why-card--dark">
+          <div class="why-card-num">A</div>
+          <h3>HAT sees the whole picture</h3>
+          <p>
+            normal upscalers (RealESRGAN, Topaz default) learn average textures
+            from training data and paste them everywhere. skin becomes porcelain.
+            fabric loses weave. hair clumps.
+          </p>
+          <p>
+            HAT-GAN uses self-attention — same core idea as GPT, but for pixels.
+            it looks at wide patches and reasons about what <em>belongs</em> there
+            based on context. not averaging. actually thinking.
+          </p>
+          <div class="why-card-tag">HAT-GAN Hybrid Attention Transformer</div>
+        </article>
+
+        <article class="why-card why-card--yellow">
+          <div class="why-card-num">B</div>
+          <h3>stable diffusion without the warping</h3>
+          <p>
+            SD is generative — ask it for texture and it also moves your eyebrows
+            and shifts the lighting. terrible for photos.
+          </p>
+          <p>
+            the fix: frequency separation. keep the original's low frequencies
+            (your colors, shapes, light). only inject SD's high-frequency
+            micro-texture layer. pores without color drift.
+          </p>
+          <div class="why-card-tag">Frequency Separation · ControlNet Tile</div>
+        </article>
+
+        <article class="why-card why-card--outline">
+          <div class="why-card-num">C</div>
+          <h3>faces stay human</h3>
+          <p>
+            detects every face before the SD pass. builds a feathered mask around
+            it (+30% padding for hair). blends SD output <em>around</em> faces
+            not on them. GFPGAN v1.4 pass restores eye symmetry and lip shape
+            separately.
+          </p>
+          <div class="why-card-tag">GFPGAN v1.4 · Face Detection</div>
+        </article>
+
+        <article class="why-card why-card--outline">
+          <div class="why-card-num">D</div>
+          <h3>3 minutes not 30</h3>
+          <p>
+            original pipeline ran SD after the full upscale — huge image, tons of
+            tiles, forever. i figured out SD doesn't care about absolute
+            resolution, just local structure. so now it runs <em>before</em> the
+            final HAT pass at the smaller intermediate size.
+          </p>
+          <p>same quality. 3 minutes instead of 30. figured that out at 1am.</p>
+          <div class="why-card-tag">Dynamic VRAM Tiling · 6GB+ GPUs</div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ░░ AMAN'S NOTE ░░ -->
+    <section class="note-section">
+      <div class="aman-note">
+        <div class="note-tape"></div>
+        <div class="note-from">— aman, 3am, bedroom</div>
+        <p>
+          "i spent like 3 weekends on this because i had a photo i really wanted to print large
+          and topaz made it look like a video game cutscene from 2009. then i just kept going
+          because the frequency separation thing was genuinely interesting to figure out.
+          anyway it's free, MIT license, do whatever."
+        </p>
+        <a href="https://github.com/AmSach/hyperscale-ai" target="_blank" class="note-link">github →</a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="footer-left">
+      <span class="footer-brand">HyperScale AI</span>
+      <span>MIT License · built by <a href="https://github.com/AmSach" target="_blank">Aman Sachan</a></span>
+    </div>
+    <div class="footer-right">
+      <a href="install.bat" download>install.bat</a>
+      <a href="https://github.com/AmSach/hyperscale-ai" target="_blank">source</a>
+    </div>
+  </footer>
+
+<script>
+function copyCmd() {
+  const txt = document.getElementById('installCmd').innerText;
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'copied!';
+    btn.style.background = '#1b7a4a';
+    setTimeout(() => { btn.textContent = 'copy'; btn.style.background = ''; }, 2000);
+  });
+}
+
+// slider logic — works for both sliders on page
+function initSlider(containerId, layerId, handleId) {
+  const container = document.getElementById(containerId);
+  const layer = document.getElementById(layerId);
+  const handle = document.getElementById(handleId);
+  if (!container || !layer || !handle) return;
+
+  let dragging = false;
+
+  function move(e) {
+    if (!dragging) return;
+    const rect = container.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    let pct = Math.min(98, Math.max(2, ((clientX - rect.left) / rect.width) * 100));
+    layer.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+    handle.style.left = pct + '%';
+  }
+
+  container.addEventListener('mousedown', () => dragging = true);
+  container.addEventListener('touchstart', () => dragging = true, { passive: true });
+  window.addEventListener('mouseup', () => dragging = false);
+  window.addEventListener('touchend', () => dragging = false);
+  window.addEventListener('mousemove', move);
+  window.addEventListener('touchmove', move, { passive: true });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initSlider('compContainer', 'layerBefore', 'sliderHandle');
+  initSlider('compFull', 'layerFull', 'handleFull');
+});
+</script>
 </body>
 </html>
