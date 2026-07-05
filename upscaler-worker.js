@@ -1,13 +1,11 @@
 'use strict';
 
 // ============================================================================
-// SuperAI Upscaler — Professional Algorithmic Image Upscaling Engine
-// Runs entirely inside a Web Worker. No AI, no dependencies.
+// superai Upscaler — Professional Algorithmic Image Upscaling Engine
+// runs in web worker thread
 // ============================================================================
 
 const PI = Math.PI;
-
-// ======================== MATH UTILITIES ====================================
 
 function sinc(x) {
   if (x === 0) return 1;
@@ -29,16 +27,12 @@ function clampByte(v) {
   return v < 0 ? 0 : v > 255 ? 255 : v;
 }
 
-// ======================== PRESETS ============================================
-
 const PRESETS = {
   poster:  { sharpening: 65, detail: 70, contrast: 60, colorBoost: 40, denoise: 15 },
   web:     { sharpening: 40, detail: 40, contrast: 40, colorBoost: 25, denoise: 25 },
   photo:   { sharpening: 50, detail: 55, contrast: 45, colorBoost: 30, denoise: 20 },
   maximum: { sharpening: 80, detail: 85, contrast: 70, colorBoost: 50, denoise: 10 }
 };
-
-// ======================== PROGRESS REPORTING =================================
 
 let totalStages = 8;
 let currentStageIndex = 0;
@@ -54,13 +48,13 @@ function sendProgress(stage, percent) {
 }
 
 // ======================== SEPARABLE LANCZOS-3 RESAMPLING ====================
-// Two-pass (horizontal then vertical) sinc-based interpolation.
-// Lanczos-3 uses a 3-lobe windowed sinc — the gold standard for
-// traditional image resampling, superior to bicubic.
+// horizontal and vertical separable passes
+// standard lanczos 3 lobe filter
+// 
 
 function separableLanczos3(src, srcW, srcH, dstW, dstH, progressLabel) {
-  const A = 3; // Lanczos lobes
-  const channels = 4; // RGBA
+  const A = 3; // lanczos lobes
+  const channels = 4; // rgba
 
   // --- Horizontal pass: srcW×srcH → dstW×srcH ---
   const midW = dstW;
@@ -136,13 +130,12 @@ function separableLanczos3(src, srcW, srcH, dstW, dstH, progressLabel) {
   return dst;
 }
 
-// ======================== SOBEL EDGE DETECTION ==============================
-// Full 3×3 Sobel operator computing gradient magnitude and direction
+// full 3×3 Sobel operator computing gradient magnitude and direction
 // on BT.601 luminance. Used to drive adaptive processing in later stages.
 
 function sobelEdgeDetect(img, w, h) {
   const ch = 4;
-  // Compute grayscale luminance
+  // compute grayscale luminance
   const lum = new Float32Array(w * h);
   for (let i = 0; i < w * h; i++) {
     const idx = i * ch;
@@ -173,7 +166,7 @@ function sobelEdgeDetect(img, w, h) {
     }
   }
 
-  // Normalize magnitude to [0, 1]
+  // normalize magnitude to [0, 1]
   if (maxMag > 0) {
     const inv = 1 / maxMag;
     for (let i = 0; i < magnitude.length; i++) {
@@ -185,7 +178,7 @@ function sobelEdgeDetect(img, w, h) {
 }
 
 // ======================== EDGE-DIRECTED INTERPOLATION =======================
-// After Lanczos upscaling, detect edge direction via Sobel and apply
+// after Lanczos upscaling, detect edge direction via Sobel and apply
 // correction that blends along edges (preserving sharpness) instead
 // of across them (which creates blur).
 
@@ -196,8 +189,8 @@ function edgeDirectedEnhance(img, w, h, strength) {
   out.set(img);
 
   const threshold = 0.05;
-  // Direction offsets for 4 quantized edge directions
-  // Edge at 0°: sample along Y, Edge at 90°: sample along X
+  // direction offsets for 4 quantized edge directions
+  // edge at 0°: sample along Y, Edge at 90°: sample along X
   const dirOffsets = [
     { dx: 0, dy: 1 },   // 0° edge → vertical
     { dx: 1, dy: 1 },   // 45° edge → diagonal
@@ -211,20 +204,20 @@ function edgeDirectedEnhance(img, w, h, strength) {
       const mag = magnitude[idx];
       if (mag < threshold) continue;
 
-      // Quantize direction to 4 bins
+      // quantize direction to 4 bins
       let angle = direction[idx];
       if (angle < 0) angle += PI;
       const bin = Math.round(angle / (PI / 4)) % 4;
       const off = dirOffsets[bin];
 
-      // Sample along the edge (parallel)
+      // sample along the edge (parallel)
       const along1 = ((y + off.dy) * w + (x + off.dx)) * ch;
       const along2 = ((y - off.dy) * w + (x - off.dx)) * ch;
-      // Sample across the edge (perpendicular)
+      // sample across the edge (perpendicular)
       const across1 = ((y + off.dx) * w + (x - off.dy)) * ch;
       const across2 = ((y - off.dx) * w + (x + off.dy)) * ch;
 
-      // Bounds check
+      // bounds check
       if (x + off.dx < 0 || x + off.dx >= w || y + off.dy < 0 || y + off.dy >= h) continue;
       if (x - off.dx < 0 || x - off.dx >= w || y - off.dy < 0 || y - off.dy >= h) continue;
       if (x - off.dy < 0 || x - off.dy >= w || y + off.dx < 0 || y + off.dx >= h) continue;
@@ -235,13 +228,13 @@ function edgeDirectedEnhance(img, w, h, strength) {
 
       for (let c = 0; c < 3; c++) {
         const current = img[pixIdx + c];
-        // Average along the edge
+        // average along the edge
         const alongAvg = (img[along1 + c] + img[along2 + c]) * 0.5;
-        // Average across the edge
+        // average across the edge
         const acrossAvg = (img[across1 + c] + img[across2 + c]) * 0.5;
         // Blend: weight along > across to preserve edge
         const edgeVal = alongAvg * 0.7 + acrossAvg * 0.3;
-        // Mix with original based on edge strength
+        // mix with original based on edge strength
         out[pixIdx + c] = current * (1 - blendStrength) + edgeVal * blendStrength;
       }
     }
@@ -250,8 +243,7 @@ function edgeDirectedEnhance(img, w, h, strength) {
   return out;
 }
 
-// ======================== SEPARABLE GAUSSIAN BLUR ===========================
-// Used for Laplacian pyramid, sharpening, and CLAHE. Separable
+// used for Laplacian pyramid, sharpening, and CLAHE. Separable
 // implementation: horizontal then vertical, each O(n×k).
 
 function buildGaussianKernel(sigma) {
@@ -264,7 +256,7 @@ function buildGaussianKernel(sigma) {
     kernel[i] = Math.exp(-(x * x) / (2 * sigma * sigma));
     sum += kernel[i];
   }
-  // Normalize
+  // normalize
   for (let i = 0; i < size; i++) kernel[i] /= sum;
   return { kernel, radius };
 }
@@ -276,7 +268,7 @@ function gaussianBlur(img, w, h, sigma) {
   const temp = new Float32Array(w * h * ch);
   const out = new Float32Array(w * h * ch);
 
-  // Horizontal pass
+  // horizontal pass
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       let r = 0, g = 0, b = 0, a = 0;
@@ -297,7 +289,7 @@ function gaussianBlur(img, w, h, sigma) {
     }
   }
 
-  // Vertical pass
+  // vertical pass
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       let r = 0, g = 0, b = 0, a = 0;
@@ -321,8 +313,7 @@ function gaussianBlur(img, w, h, sigma) {
   return out;
 }
 
-// ======================== NOISE ESTIMATION ==================================
-// Estimate image noise level from flat regions. Divides image into
+// estimate image noise level from flat regions. Divides image into
 // 16×16 blocks, computes variance per block, takes median of lowest
 // quartile as the noise floor.
 
@@ -360,9 +351,8 @@ function estimateNoise(img, w, h) {
   return variances[medianIdx] || 0;
 }
 
-// ======================== LIGHT MEDIAN FILTER ===============================
 // 3×3 median filter for noise reduction in noisy areas.
-// Only applied when denoise is significant.
+// only applied when denoise is significant.
 
 function medianFilter3x3(img, w, h) {
   const ch = 4;
@@ -379,7 +369,7 @@ function medianFilter3x3(img, w, h) {
             buf[k++] = img[((y + dy) * w + (x + dx)) * ch + c];
           }
         }
-        // Sort for median (insertion sort on 9 elements)
+        // sort for median (insertion sort on 9 elements)
         for (let i = 1; i < 9; i++) {
           const val = buf[i];
           let j = i - 1;
@@ -396,8 +386,7 @@ function medianFilter3x3(img, w, h) {
   return out;
 }
 
-// ======================== LAPLACIAN PYRAMID DETAIL ENHANCEMENT ===============
-// Builds a 4-level Gaussian pyramid, extracts 3 Laplacian (detail) layers,
+// builds a 4-level Gaussian pyramid, extracts 3 Laplacian (detail) layers,
 // amplifies each at a different strength, then reconstructs. Fine detail
 // gets the most boost, coarse structure stays stable.
 
@@ -405,7 +394,7 @@ function laplacianPyramidDetail(img, w, h, detailStrength) {
   sendProgress('Injecting detail...', 0);
   const strength = detailStrength / 100;
 
-  // Build Gaussian pyramid
+  // build Gaussian pyramid
   const g0 = img;
   const g1 = gaussianBlur(g0, w, h, 1.0);
   sendProgress('Injecting detail...', 20);
@@ -414,11 +403,11 @@ function laplacianPyramidDetail(img, w, h, detailStrength) {
   const g3 = gaussianBlur(g2, w, h, 4.0);
   sendProgress('Injecting detail...', 55);
 
-  // Build Laplacian layers and amplify
+  // build Laplacian layers and amplify
   const len = w * h * 4;
   const result = new Float32Array(len);
 
-  // Fine detail boost factors
+  // fine detail boost factors
   const fineBoost   = 1.0 + strength * 0.8;
   const medBoost    = 1.0 + strength * 0.5;
   const coarseBoost = 1.0 + strength * 0.3;
@@ -435,7 +424,7 @@ function laplacianPyramidDetail(img, w, h, detailStrength) {
 }
 
 // ======================== FREQUENCY-AWARE ADAPTIVE SHARPENING ================
-// Unlike naive unsharp masking which creates halos on hard edges,
+// unlike naive unsharp masking which creates halos on hard edges,
 // this uses the Sobel edge map to apply different sharpening strengths:
 // light on smooth areas, full on textures, reduced on hard edges.
 
@@ -444,11 +433,11 @@ function frequencyAwareSharpen(img, w, h, sharpStrength) {
   const strength = sharpStrength / 100;
   const ch = 4;
 
-  // Compute edge map
+  // compute edge map
   const { magnitude } = sobelEdgeDetect(img, w, h);
   sendProgress('Adaptive sharpening...', 25);
 
-  // Compute unsharp mask: highPass = original - blurred
+  // compute unsharp mask: highPass = original - blurred
   const blurred = gaussianBlur(img, w, h, 0.7);
   sendProgress('Adaptive sharpening...', 60);
 
@@ -459,7 +448,7 @@ function frequencyAwareSharpen(img, w, h, sharpStrength) {
       const edgeMag = magnitude[idx];
       const pixIdx = idx * ch;
 
-      // Adaptive sharpening factor based on local content
+      // adaptive sharpening factor based on local content
       let factor;
       if (edgeMag < 0.1) {
         factor = strength * 0.3; // smooth area — light sharpen
@@ -481,8 +470,7 @@ function frequencyAwareSharpen(img, w, h, sharpStrength) {
   return out;
 }
 
-// ======================== CLAHE =============================================
-// Contrast Limited Adaptive Histogram Equalization. Divides image into
+// contrast Limited Adaptive Histogram Equalization. Divides image into
 // an 8×8 tile grid, clips each tile's histogram (preventing over-
 // enhancement), and uses bilinear interpolation between tiles for
 // seamless transitions. Processes luminance only to preserve colors.
@@ -499,21 +487,21 @@ function clahe(img, w, h, contrastStrength) {
   const tileH = Math.ceil(h / tilesY);
   const bins = 256;
 
-  // Compute luminance
+  // compute luminance
   const lum = new Float32Array(w * h);
   for (let i = 0; i < w * h; i++) {
     const idx = i * ch;
     lum[i] = 0.299 * img[idx] + 0.587 * img[idx + 1] + 0.114 * img[idx + 2];
   }
 
-  // Compute per-tile clipped CDFs
+  // compute per-tile clipped CDFs
   const tileCDFs = [];
   const clipLimitFactor = 1.0 + strength * 3.0;
 
   for (let ty = 0; ty < tilesY; ty++) {
     tileCDFs[ty] = [];
     for (let tx = 0; tx < tilesX; tx++) {
-      // Compute histogram for this tile
+      // compute histogram for this tile
       const hist = new Float64Array(bins);
       let tilePixels = 0;
       const x0 = tx * tileW;
@@ -529,7 +517,7 @@ function clahe(img, w, h, contrastStrength) {
         }
       }
 
-      // Clip histogram
+      // clip histogram
       const clipLimit = Math.max(1, (tilePixels / bins) * clipLimitFactor);
       let excess = 0;
       for (let i = 0; i < bins; i++) {
@@ -538,19 +526,19 @@ function clahe(img, w, h, contrastStrength) {
           hist[i] = clipLimit;
         }
       }
-      // Redistribute excess uniformly
+      // redistribute excess uniformly
       const redistrib = excess / bins;
       for (let i = 0; i < bins; i++) {
         hist[i] += redistrib;
       }
 
-      // Compute CDF
+      // compute CDF
       const cdf = new Float32Array(bins);
       cdf[0] = hist[0];
       for (let i = 1; i < bins; i++) {
         cdf[i] = cdf[i - 1] + hist[i];
       }
-      // Normalize to [0, 255]
+      // normalize to [0, 255]
       const cdfMin = cdf[0];
       const cdfMax = cdf[bins - 1];
       const cdfRange = cdfMax - cdfMin;
@@ -565,7 +553,7 @@ function clahe(img, w, h, contrastStrength) {
 
   sendProgress('Local contrast (CLAHE)...', 50);
 
-  // Apply with bilinear interpolation between tiles
+  // apply with bilinear interpolation between tiles
   const out = new Float32Array(img.length);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -574,7 +562,7 @@ function clahe(img, w, h, contrastStrength) {
       const oldL = lum[idx];
       const bin = clampF(Math.floor(oldL), 0, 255) | 0;
 
-      // Find tile coordinates
+      // find tile coordinates
       const txF = (x / tileW) - 0.5;
       const tyF = (y / tileH) - 0.5;
       const tx0 = clampF(Math.floor(txF), 0, tilesX - 1) | 0;
@@ -584,7 +572,7 @@ function clahe(img, w, h, contrastStrength) {
       const fx = clampF(txF - tx0, 0, 1);
       const fy = clampF(tyF - ty0, 0, 1);
 
-      // Bilinear interpolation of mapped values
+      // bilinear interpolation of mapped values
       const v00 = tileCDFs[ty0][tx0][bin];
       const v10 = tileCDFs[ty0][tx1][bin];
       const v01 = tileCDFs[ty1][tx0][bin];
@@ -592,10 +580,10 @@ function clahe(img, w, h, contrastStrength) {
       const newL = v00 * (1 - fx) * (1 - fy) + v10 * fx * (1 - fy) +
                    v01 * (1 - fx) * fy + v11 * fx * fy;
 
-      // Blend with original based on strength
+      // blend with original based on strength
       const finalL = oldL + (newL - oldL) * strength;
 
-      // Apply luminance ratio to RGB (preserves color)
+      // apply luminance ratio to RGB (preserves color)
       if (oldL > 0.001) {
         const ratio = finalL / oldL;
         out[pixIdx]     = img[pixIdx]     * ratio;
@@ -614,8 +602,7 @@ function clahe(img, w, h, contrastStrength) {
   return out;
 }
 
-// ======================== PERCEPTUAL COLOR ENHANCEMENT ======================
-// Decomposes to luminance + chroma, applies a smooth sigmoid S-curve
+// decomposes to luminance + chroma, applies a smooth sigmoid S-curve
 // for contrast, and boosts saturation with gamut protection.
 
 function colorEnhance(img, w, h, colorBoost, contrastAmt) {
@@ -629,21 +616,21 @@ function colorEnhance(img, w, h, colorBoost, contrastAmt) {
     const idx = i * ch;
     const r = img[idx], g = img[idx + 1], b = img[idx + 2];
 
-    // Compute luminance
+    // compute luminance
     const lum = 0.299 * r + 0.587 * g + 0.114 * b;
 
     // S-curve on luminance (sigmoid-based for natural look)
     const normalized = clampF(lum / 255, 0, 1);
-    // Smooth S-curve: shift midtones, preserve extremes
+    // smooth S-curve: shift midtones, preserve extremes
     const curved = 1.0 / (1.0 + Math.exp(-6 * (normalized - 0.5)));
     const newL = (normalized + (curved - normalized) * contrastS) * 255;
 
-    // Chroma decomposition
+    // chroma decomposition
     const cr = r - lum;
     const cg = g - lum;
     const cb = b - lum;
 
-    // Saturation boost with gamut protection
+    // saturation boost with gamut protection
     const newR = clampF(newL + cr * satFactor, 0, 255);
     const newG = clampF(newL + cg * satFactor, 0, 255);
     const newB = clampF(newL + cb * satFactor, 0, 255);
@@ -669,7 +656,7 @@ function antiArtifact(img, w, h) {
   out.set(img);
 
   // --- Ringing suppression ---
-  // Clamp pixels that overshoot their local 3×3 min/max
+  // clamp pixels that overshoot their local 3×3 min/max
   const ringingThreshold = 8.0;
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
@@ -698,7 +685,7 @@ function antiArtifact(img, w, h) {
   sendProgress('Final polish...', 50);
 
   // --- Ordered dithering (anti-banding) ---
-  // Bayer 4×4 matrix for subtle dithering to prevent color banding
+  // bayer 4×4 matrix for subtle dithering to prevent color banding
   const bayer = [
     [ 0,  8,  2, 10],
     [12,  4, 14,  6],
@@ -720,8 +707,7 @@ function antiArtifact(img, w, h) {
   return out;
 }
 
-// ======================== IMAGE CLASSIFICATION ==============================
-// Evaluates block variance to classify image as Photo, Graphic (Line Art/Text),
+// evaluates block variance to classify image as Photo, Graphic (Line Art/Text),
 // Flat, or Noisy, allowing the engine to adapt parameters dynamically.
 
 function classifyImage(img, w, h, noiseLevel) {
@@ -778,8 +764,7 @@ function classifyImage(img, w, h, noiseLevel) {
   return { type, flatRatio, detailRatio, edgeRatio, noiseLevel };
 }
 
-// ======================== CINEMATIC COLOR GRADING ============================
-// Professional Hollywood Teal & Orange split-toning and S-curve grading.
+// professional Hollywood Teal & Orange split-toning and S-curve grading.
 
 function applyCinematicGrading(img, w, h, strength) {
   sendProgress('Cinematic grading...', 0);
@@ -822,7 +807,7 @@ function applyCinematicGrading(img, w, h, strength) {
     gAdj = gAdj * (1.0 - shadowDesat) + lumAdj * shadowDesat;
     bAdj = bAdj * (1.0 - shadowDesat) + lumAdj * shadowDesat;
     
-    // Recalculate lumAdj
+    // recalculate lumAdj
     const finalLumAdj = 0.299 * rAdj + 0.587 * gAdj + 0.114 * bAdj;
     
     if (finalLumAdj > 0.001) {
@@ -874,10 +859,10 @@ function applyFilmGrain(img, w, h, strength) {
     const lum = 0.299 * r + 0.587 * g + 0.114 * b;
     const norm = clampF(lum / 255, 0, 1);
     
-    // Parabolic midtone mask: 4.0 * Y * (1.0 - Y)
+    // parabolic midtone mask: 4.0 * Y * (1.0 - Y)
     const grainMask = clampF(4.0 * norm * (1.0 - norm), 0, 1);
     
-    // Monochromatic noise
+    // monochromatic noise
     const noise = gaussianNoise() * factor * grainMask;
     
     out[idx]     = clampF(r + noise, 0, 255);
@@ -890,8 +875,7 @@ function applyFilmGrain(img, w, h, strength) {
   return out;
 }
 
-// ======================== PIPELINE ORCHESTRATOR ==============================
-// Manages the full upscaling pipeline:
+// manages the full upscaling pipeline:
 // 1. Pre-analysis (noise estimation & classification)
 // 2. Multi-pass Lanczos-3 upscaling with intermediate sharpening
 // 3. Post-processing: detail → sharpen → CLAHE → color → anti-artifact
@@ -899,7 +883,7 @@ function applyFilmGrain(img, w, h, strength) {
 function processUpscale(srcBuffer, srcW, srcH, scale, options) {
   const startTime = Date.now();
 
-  // Convert input to Float32Array for precision
+  // convert input to Float32Array for precision
   const src = new Float32Array(srcBuffer.length);
   for (let i = 0; i < srcBuffer.length; i++) {
     src[i] = srcBuffer[i];
@@ -913,7 +897,7 @@ function processUpscale(srcBuffer, srcW, srcH, scale, options) {
   const detectedType = classification.type;
   sendProgress('Analyzing image...', 100);
 
-  // Set parameters dynamically if preset is auto
+  // set parameters dynamically if preset is auto
   let sharpening = options.sharpening ?? 50;
   let detail = options.detail ?? 50;
   let contrast = options.contrast ?? 50;
@@ -977,7 +961,7 @@ function processUpscale(srcBuffer, srcW, srcH, scale, options) {
   }
   if (passes.length === 0) passes.push(scale);
 
-  // Calculate total stages: analysis + N passes + 6 post-processing stages + 1 grain stage
+  // calculate total stages: analysis + N passes + 6 post-processing stages + 1 grain stage
   totalStages = 1 + passes.length + 7;
 
   // --- Stage 2+: Multi-pass upscaling ---
@@ -992,7 +976,7 @@ function processUpscale(srcBuffer, srcW, srcH, scale, options) {
     const newH = Math.round(curH * passScale);
     const label = `Upscaling pass ${p + 1}/${passes.length} (${passScale}×)...`;
 
-    // Optional denoise before upscaling
+    // optional denoise before upscaling
     if (denoise > 30 && p === 0) {
       sendProgress('Denoising...', 0);
       current = medianFilter3x3(current, curW, curH);
@@ -1008,12 +992,12 @@ function processUpscale(srcBuffer, srcW, srcH, scale, options) {
       current = edgeDirectedEnhance(current, curW, curH, 0.3);
     }
 
-    // Light intermediate sharpening to prevent blur accumulation
+    // light intermediate sharpening to prevent blur accumulation
     if (passes.length > 1 && p < passes.length - 1) {
       const lightBlur = gaussianBlur(current, curW, curH, 0.5);
       const lightStrength = 0.3 * (1 - noiseReduction * 0.5);
       for (let i = 0; i < current.length; i++) {
-        if (i % 4 < 3) { // RGB only
+        if (i % 4 < 3) { // rgb only
           current[i] += (current[i] - lightBlur[i]) * lightStrength;
         }
       }
@@ -1079,8 +1063,6 @@ function processUpscale(srcBuffer, srcW, srcH, scale, options) {
     autoSettings: { sharpening, detail, contrast, colorBoost, denoise, grain, cinematic } 
   };
 }
-
-// ======================== WORKER MESSAGE HANDLER ============================
 
 self.onmessage = function(e) {
   const msg = e.data;

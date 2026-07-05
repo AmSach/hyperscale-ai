@@ -1,5 +1,6 @@
 /* ============================================================================
-   SuperAI Upscaler — Retro 80s Science Chaos Design System
+   HyperScale AI — i built this myself at like 2am. it works.
+   mostly. don't judge the CSS i was tired
    ============================================================================ */
 
 :root {
@@ -79,7 +80,7 @@
   --text-muted: var(--textlt);
   --text-dim: var(--charcol-lt);
 
-  --font-family: 'DM Sans', system-ui, sans-serif;
+  --font-family: 'Outfit', 'Caveat', cursive, sans-serif;
   --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
   --duration-fast: 0.1s;
   --duration-normal: 0.25s;
@@ -101,67 +102,65 @@ html {
 
 body {
   font-family: var(--font-family);
-  background-color: #f8f6f0;
+  background-color: #f5f2ea;
   color: var(--charcoal);
   min-height: 100vh;
   overflow: hidden;
   line-height: 1.5;
+  cursor: crosshair;
 
-  /* THE GRAPH PAPER GRID — visible blue lines */
+  /* graph paper — the slightly-off alignment is on purpose (not a bug i promise) */
   background-image:
-    linear-gradient(rgba(116, 185, 255, 0.15) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(116, 185, 255, 0.15) 1px, transparent 1px),
-    linear-gradient(rgba(116, 185, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(116, 185, 255, 0.06) 1px, transparent 1px);
-  background-size: 80px 80px, 80px 80px, 20px 20px, 20px 20px;
-  background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
+    linear-gradient(rgba(116, 185, 255, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(116, 185, 255, 0.18) 1px, transparent 1px),
+    linear-gradient(rgba(116, 185, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(116, 185, 255, 0.07) 1px, transparent 1px);
+  background-size: 72px 72px, 72px 72px, 18px 18px, 18px 18px;
+  background-position: 3px 7px, 3px 7px, 3px 7px, 3px 7px;
 }
 
-/* Red notebook margin line down the left side */
+/* the red margin line. classic notebook. */
 body::before {
   content: '';
   position: fixed;
   top: 0; bottom: 0;
-  left: 45px;
-  width: 2px;
-  background: rgba(229, 57, 70, 0.25);
+  left: 43px;
+  width: 2.5px;
+  background: rgba(229, 57, 70, 0.3);
   z-index: 999;
   pointer-events: none;
 }
 
-/* Floating doodle shapes */
-body::after {
-  content: '▲ ● ■ ◆ ★ ⬡ ✦ ◯ △ ⬟';
+/* floating doodle shapes — i hand-placed all of these */
+.floating-doodles {
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  z-index: 0;
+  inset: 0;
   pointer-events: none;
-  font-size: 20px;
-  word-spacing: 15vw;
-  line-height: 20vh;
-  padding: 5vh 5vw;
-  color: transparent;
-  text-shadow:
-    2vw 8vh 0 rgba(255,107,107,0.08),
-    78vw 5vh 0 rgba(0,191,166,0.07),
-    35vw 82vh 0 rgba(255,217,61,0.09),
-    8vw 55vh 0 rgba(162,155,254,0.06),
-    62vw 38vh 0 rgba(255,140,66,0.07),
-    22vw 28vh 0 rgba(116,185,255,0.06),
-    50vw 65vh 0 rgba(85,239,196,0.07),
-    88vw 72vh 0 rgba(255,151,181,0.06),
-    42vw 15vh 0 rgba(255,107,107,0.05),
-    70vw 90vh 0 rgba(0,191,166,0.06);
-  animation: float-shape 30s ease-in-out infinite;
+  z-index: 0;
   overflow: hidden;
 }
+.doodle {
+  position: absolute;
+  font-size: 18px;
+  opacity: 0.13;
+  animation: floatUp linear infinite;
+}
+.doodle:nth-child(1)  { left: 8%;  animation-duration: 22s; animation-delay: -5s;  color: var(--neon-pink); }
+.doodle:nth-child(2)  { left: 18%; animation-duration: 17s; animation-delay: -2s;  color: var(--saffron); }
+.doodle:nth-child(3)  { left: 31%; animation-duration: 25s; animation-delay: -11s; color: var(--neon-cyan); }
+.doodle:nth-child(4)  { left: 44%; animation-duration: 19s; animation-delay: -7s;  color: var(--neon-purple); }
+.doodle:nth-child(5)  { left: 57%; animation-duration: 28s; animation-delay: -14s; color: var(--neon-pink); }
+.doodle:nth-child(6)  { left: 66%; animation-duration: 15s; animation-delay: -3s;  color: var(--marker-green); }
+.doodle:nth-child(7)  { left: 74%; animation-duration: 21s; animation-delay: -9s;  color: var(--saffron); }
+.doodle:nth-child(8)  { left: 83%; animation-duration: 24s; animation-delay: -1s;  color: var(--neon-cyan); }
+.doodle:nth-child(9)  { left: 92%; animation-duration: 18s; animation-delay: -16s; color: var(--neon-purple); }
+.doodle:nth-child(10) { left: 12%; animation-duration: 30s; animation-delay: -20s; color: var(--marker-blue); }
 
-@keyframes float-shape {
-  0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  25% { transform: translate(15px, -20px) rotate(90deg); }
-  50% { transform: translate(-10px, 15px) rotate(180deg); }
-  75% { transform: translate(20px, 5px) rotate(270deg); }
+@keyframes floatUp {
+  0%   { transform: translateY(105vh) rotate(0deg);   opacity: 0; }
+  8%   { opacity: 0.18; }
+  92%  { opacity: 0.18; }
+  100% { transform: translateY(-10vh) rotate(390deg); opacity: 0; }
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -277,19 +276,19 @@ a:hover { color: var(--neon-pink); }
 }
 
 .app-header::before {
-  content: '⚡ workshop build #420 — TOPAZ KILLER' !important;
+  content: '⚡ topaz killer — built in my room' !important;
   position: absolute;
-  bottom: -14px;
+  bottom: -13px;
   left: 50%;
-  transform: translateX(-50%) rotate(-1deg);
+  transform: translateX(-50%) rotate(-2.5deg);
   font-family: 'Caveat', cursive;
   font-size: 12px;
   font-weight: 700;
   color: var(--charcoal);
-  background: var(--neon-yellow);
-  padding: 1px 14px 2px;
+  background: #ffe066;
+  padding: 2px 12px 3px;
   border: 1.5px solid var(--charcoal);
-  box-shadow: 1px 1px 0 var(--charcoal);
+  box-shadow: 2px 2px 0 var(--charcoal);
   z-index: 100;
   white-space: nowrap;
 }
@@ -363,19 +362,19 @@ a:hover { color: var(--neon-pink); }
 }
 
 .upload-zone::before {
-  content: '📎 ATTACH FILE HERE' !important;
+  content: '📎 drop photo here' !important;
   position: absolute;
-  top: -8px;
-  left: 50%;
-  transform: translateX(-50%) rotate(1.5deg);
+  top: -9px;
+  left: 40%;
+  transform: translateX(-50%) rotate(2deg);
   background: var(--marker-blue) !important;
   color: var(--charcoal) !important;
   font-family: 'Caveat', cursive !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
   font-weight: 700 !important;
-  padding: 2px 16px !important;
+  padding: 2px 14px 3px !important;
   border: 1.5px solid var(--charcoal) !important;
-  box-shadow: 1.5px 1.5px 0 var(--charcoal) !important;
+  box-shadow: 2px 2px 0 var(--charcoal) !important;
   z-index: 5;
   white-space: nowrap;
 }
@@ -410,7 +409,7 @@ a:hover { color: var(--neon-pink); }
 }
 
 .upload-subtext {
-  font-family: 'DM Sans', sans-serif !important;
+  font-family: 'Caveat', cursive !important;
   font-size: 11px !important;
   color: var(--charcol-lt) !important;
   margin-top: var(--space-xs);
@@ -477,7 +476,7 @@ a:hover { color: var(--neon-pink); }
   border: none !important;
   background: transparent !important;
   color: var(--charcol-lt) !important;
-  font-family: 'Space Mono', monospace !important;
+  font-family: 'Caveat', cursive !important;
   font-size: 11px !important;
   font-weight: 700 !important;
   cursor: pointer;
@@ -554,7 +553,7 @@ a:hover { color: var(--neon-pink); }
   background: var(--bgcard) !important;
   color: var(--charcoal) !important;
   box-shadow: 2px 2px 0 var(--charcoal) !important;
-  font-family: 'DM Sans', sans-serif !important;
+  font-family: 'Caveat', cursive !important;
   outline: none;
   transition: all 0.15s ease;
 }
@@ -779,19 +778,24 @@ a:hover { color: var(--neon-pink); }
 }
 
 @keyframes cta-nudge {
-  0%, 100% { box-shadow: 4px 4px 0 var(--charcoal), 0 0 0 0 rgba(27,122,74,0); }
-  50% { box-shadow: 4px 4px 0 var(--charcoal), 0 0 0 6px rgba(27,122,74,0.2); }
+  0%   { box-shadow: 4px 4px 0 var(--charcoal); transform: rotate(0deg); }
+  20%  { box-shadow: 5px 5px 0 var(--charcoal); transform: rotate(-0.4deg); }
+  40%  { box-shadow: 4px 4px 0 var(--charcoal); transform: rotate(0.3deg); }
+  60%  { box-shadow: 5px 5px 0 var(--charcoal); transform: rotate(-0.2deg); }
+  80%  { box-shadow: 4px 4px 0 var(--charcoal); transform: rotate(0.4deg); }
+  100% { box-shadow: 4px 4px 0 var(--charcoal); transform: rotate(0deg); }
 }
 
 .btn-process:hover:not(:disabled) {
   background: var(--greendk) !important;
-  box-shadow: 5px 5px 0 var(--charcoal) !important;
-  transform: translate(-1px, -1px) rotate(-0.5deg) !important;
+  box-shadow: 6px 6px 0 var(--charcoal) !important;
+  transform: translate(-2px, -2px) rotate(-1deg) !important;
+  animation: none !important;
 }
 
 .btn-process:active:not(:disabled) {
   box-shadow: 1px 1px 0 var(--charcoal) !important;
-  transform: translate(3px, 3px) rotate(0.5deg) !important;
+  transform: translate(3px, 3px) rotate(1deg) !important;
 }
 
 .btn-process:disabled {
@@ -803,24 +807,24 @@ a:hover { color: var(--neon-pink); }
 }
 
 .btn-process::after {
-  content: '👆 tap here!' !important;
+  content: '← hit this' !important;
   position: absolute;
-  bottom: -22px;
-  right: 10px;
+  bottom: -20px;
+  right: 14px;
   font-family: 'Caveat', cursive;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--neon-pink);
   pointer-events: none;
-  animation: wobble 3s ease-in-out infinite;
+  animation: scribble-wobble 2s ease-in-out infinite;
   white-space: nowrap;
+  transform-origin: left center;
 }
 
-@keyframes wobble {
-  0%, 100% { transform: rotate(-1.5deg); }
-  25% { transform: rotate(1deg); }
-  50% { transform: rotate(-0.5deg); }
-  75% { transform: rotate(1.5deg); }
+@keyframes scribble-wobble {
+  0%, 100% { transform: rotate(-2deg) translateX(0px); }
+  33%       { transform: rotate(1.5deg) translateX(2px); }
+  66%       { transform: rotate(-1deg) translateX(-1px); }
 }
 
 .btn-spinner {
@@ -874,19 +878,19 @@ a:hover { color: var(--neon-pink); }
 }
 
 .empty-state::before {
-  content: '⚡ READY FOR INPUT' !important;
+  content: 'drop something in already!!' !important;
   position: absolute;
-  top: -12px;
-  left: 50%;
-  transform: translateX(-50%) rotate(1.5deg);
-  background: var(--neon-yellow);
+  top: -13px;
+  left: 30%;
+  transform: translateX(-50%) rotate(-2deg);
+  background: var(--marker-pink);
   color: var(--charcoal);
   font-family: 'Caveat', cursive;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
-  padding: 3px 20px;
+  padding: 3px 18px 4px;
   border: 2px solid var(--charcoal);
-  box-shadow: 2px 2px 0 var(--charcoal);
+  box-shadow: 3px 3px 0 var(--charcoal);
   white-space: nowrap;
 }
 
@@ -1069,40 +1073,40 @@ a:hover { color: var(--neon-pink); }
   animation: fadeIn 0.4s var(--ease-smooth);
 }
 
-/* Diagonal washi tape strips for result frame */
+/* little labels i taped onto the result view */
 .result-state::before {
-  content: '📐 BEFORE & AFTER' !important;
+  content: 'before →' !important;
   position: absolute;
-  top: 10px;
-  left: 45px;
-  background: var(--marker-pink) !important;
-  color: var(--charcoal) !important;
+  top: 12px;
+  left: 50px;
+  background: var(--neon-pink) !important;
+  color: #fff !important;
   font-family: 'Caveat', cursive !important;
-  font-size: 13px !important;
+  font-size: 15px !important;
   font-weight: 700 !important;
-  padding: 3px 25px !important;
-  transform: rotate(-3deg) !important;
-  border: 1.5px solid var(--charcoal) !important;
-  box-shadow: 2px 2px 0 var(--charcoal) !important;
+  padding: 3px 20px 4px !important;
+  transform: rotate(-2.5deg) !important;
+  border: 2px solid var(--charcoal) !important;
+  box-shadow: 3px 3px 0 var(--charcoal) !important;
   z-index: 100 !important;
   pointer-events: none;
   white-space: nowrap;
 }
 
 .result-state::after {
-  content: '⚡ HAL-9000 RESOLUTION' !important;
+  content: '← after (way better)' !important;
   position: absolute;
-  top: 10px;
-  right: 45px;
-  background: var(--neon-yellow) !important;
+  top: 12px;
+  right: 50px;
+  background: var(--marker-green) !important;
   color: var(--charcoal) !important;
   font-family: 'Caveat', cursive !important;
-  font-size: 13px !important;
+  font-size: 15px !important;
   font-weight: 700 !important;
-  padding: 3px 25px !important;
-  transform: rotate(2deg) !important;
-  border: 1.5px solid var(--charcoal) !important;
-  box-shadow: 2px 2px 0 var(--charcoal) !important;
+  padding: 3px 20px 4px !important;
+  transform: rotate(1.5deg) !important;
+  border: 2px solid var(--charcoal) !important;
+  box-shadow: 3px 3px 0 var(--charcoal) !important;
   z-index: 100 !important;
   pointer-events: none;
   white-space: nowrap;
@@ -1403,49 +1407,46 @@ a:hover { color: var(--neon-pink); }
   animation: toastIn 0.3s var(--ease-smooth), toastOut 0.3s 3.7s var(--ease-smooth) forwards;
 }
 
-/* ======================== AMAN'S DEV NOTES ================================== */
+/* aman's actual sticky note — i know it's ugly that's the point */
 .aman-note {
-  background: var(--neon-yellow) !important;
+  background: #fff176 !important;
   border: 2.5px solid var(--charcoal) !important;
   color: var(--charcoal) !important;
   font-family: 'Caveat', cursive !important;
-  font-size: 15px !important;
-  line-height: 1.45 !important;
-  padding: 14px 16px !important;
-  margin: 14px 0 !important;
+  font-size: 16px !important;
+  line-height: 1.5 !important;
+  padding: 16px 16px 20px !important;
+  margin: 10px 0 6px !important;
   border-radius: 1px !important;
-  box-shadow: 3px 3px 0 var(--charcoal) !important;
+  box-shadow: 4px 4px 0 var(--charcoal), 8px 2px 0 rgba(0,0,0,0.04) !important;
   position: relative !important;
   text-align: left !important;
-  transform: rotate(-0.8deg);
-  animation: tape-peel 5s ease-in-out infinite;
-}
-
-@keyframes tape-peel {
-  0%, 100% { transform: rotate(-1deg) scale(1); }
-  50% { transform: rotate(0.5deg) scale(1.01); }
+  transform: rotate(-1.5deg);
 }
 
 .aman-note::before {
-  content: "✏️ aman's note:" !important;
+  content: "✏️ aman" !important;
   font-weight: 700 !important;
-  text-transform: uppercase !important;
   font-size: 10px !important;
   font-family: 'Space Mono', monospace !important;
   display: block !important;
-  margin-bottom: 6px !important;
-  color: var(--charcoal) !important;
-  opacity: 0.65;
+  margin-bottom: 8px !important;
+  color: #888 !important;
+  letter-spacing: 0.1em;
 }
 
+/* washi tape strip at top of sticky note */
 .aman-note::after {
   content: '';
   position: absolute;
-  top: -5px; right: 10px;
-  width: 35px; height: 12px;
-  background: rgba(116,185,255,0.4);
-  border: 1px solid rgba(0,0,0,0.08);
-  transform: rotate(3deg);
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-1deg);
+  width: 50px;
+  height: 14px;
+  background: rgba(116, 185, 255, 0.55);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 1px;
 }
 
 /* ======================== SD REFINE OPTIONS PANEL ========================== */

@@ -12,6 +12,20 @@
 </head>
 <body>
 
+<!-- floating background shapes — each one animates separately now -->
+<div class="floating-doodles" aria-hidden="true">
+  <span class="doodle">▲</span>
+  <span class="doodle">★</span>
+  <span class="doodle">◆</span>
+  <span class="doodle">⬡</span>
+  <span class="doodle">●</span>
+  <span class="doodle">✦</span>
+  <span class="doodle">▲</span>
+  <span class="doodle">◯</span>
+  <span class="doodle">★</span>
+  <span class="doodle">◆</span>
+</div>
+
 <div class="app-layout">
   <!-- ======================== SIDEBAR ======================== -->
   <aside class="sidebar">
@@ -120,7 +134,7 @@
         </label>
       </div>
       
-      <!-- SD Refine Options Panel -->
+      <!-- sd options -->
       <div id="sdRefinePanel" style="display: block; margin-top: var(--space-xs); padding: var(--space-md); border: 1px solid var(--border-glass); border-radius: var(--radius-lg); background: var(--bg-surface);">
         <div class="section-label" style="margin-bottom: var(--space-sm)">SD Refine Settings</div>
         
@@ -422,9 +436,9 @@
 (function() {
   'use strict';
 
-  // ======================== STATE ==========================================
+  
   let worker = null;
-  let sourceImage = null;   // HTMLImageElement
+  let sourceImage = null;   // htmlimageelement
   let sourceW = 0, sourceH = 0;
   let resultDataUrl = null;
   let selectedScale = 4;
@@ -444,11 +458,11 @@
   let isPanning = false;
   let panStartX = 0, panStartY = 0;
 
-  // Comparison slider
+  // comparison slider
   let sliderPos = 50; // percent
   let isDraggingSlider = false;
 
-  // Preset values (Maximum uses True Generative AI)
+  // preset values (Maximum uses True Generative AI)
   const PRESETS = {
     auto:    { sharpening: 50, detail: 50, contrast: 50, colorBoost: 30, denoise: 12, grain: 12, cinematic: 0 },
     poster:  { sharpening: 65, detail: 70, contrast: 60, colorBoost: 40, denoise: 0,  grain: 12, cinematic: 0 },
@@ -458,7 +472,7 @@
                sdMode: 'hybrid', sdStrength: 45, sdControlNet: 0.65 }
   };
 
-  // ======================== DOM ELEMENTS ====================================
+  
   const $ = id => document.getElementById(id);
   const uploadZone = $('uploadZone');
   const uploadContent = $('uploadContent');
@@ -494,7 +508,7 @@
   const infoScale = $('infoScale');
   const infoType = $('infoType');
 
-  // New Neural/Engine Controls
+  // new Neural/Engine Controls
   const engineGroup = $('engineGroup');
   const neuralSettingsPanel = $('neuralSettingsPanel');
   const modelSelect = $('modelSelect');
@@ -525,24 +539,24 @@
   const replicateTokenPanel = $('replicateTokenPanel');
   const replicateTokenInput = $('replicateTokenInput');
 
-  // Initialize Replicate API token from localStorage
+  // initialize Replicate API token from localStorage
   replicateTokenInput.value = localStorage.getItem('replicate_api_token') || '';
   replicateTokenInput.addEventListener('input', () => {
     localStorage.setItem('replicate_api_token', replicateTokenInput.value.trim());
   });
 
-  // Toggle Replicate token panel based on model selection
+  // toggle Replicate token panel based on model selection
   modelSelect.addEventListener('change', () => {
     const isCloud = modelSelect.value === 'cloud-supir';
     replicateTokenPanel.style.display = isCloud ? 'block' : 'none';
   });
 
-  // Toggle SD Refine panel based on checkbox
+  // toggle SD Refine panel based on checkbox
   sdRefineCheckbox.addEventListener('change', () => {
     sdRefinePanel.style.display = sdRefineCheckbox.checked ? 'block' : 'none';
   });
 
-  // Update SD strength label on slider input
+  // update SD strength label on slider input
   sdStrengthSlider.addEventListener('input', () => {
     sdStrengthVal.textContent = sdStrengthSlider.value + '%';
   });
@@ -559,7 +573,7 @@
     sdDetailBoostVal.textContent = parseFloat(sdDetailBoostSlider.value).toFixed(2);
   });
 
-  // Sliders
+  // sliders
   const sliders = {
     sharpening: { input: $('sharpSlider'), value: $('sharpVal') },
     detail:     { input: $('detailSlider'), value: $('detailVal') },
@@ -570,13 +584,13 @@
     cinematic:  { input: $('cinematicSlider'), value: $('cinematicVal') }
   };
 
-  // ======================== WEB WORKER INIT =================================
+  
   function initWorker() {
     try {
       worker = new Worker('upscaler-worker.js');
       setupWorkerHandlers();
     } catch(e) {
-      // Fallback for file:// protocol — create blob worker
+      // fallback for file:// protocol — create blob worker
       fetch('upscaler-worker.js')
         .then(r => r.text())
         .then(code => {
@@ -606,7 +620,7 @@
     };
   }
 
-  // ======================== FILE HANDLING ====================================
+  
   uploadZone.addEventListener('click', () => {
     if (!isProcessing) fileInput.click();
   });
@@ -649,7 +663,7 @@
       processBtn.disabled = false;
       updateOutputDims();
 
-      // Show preview in upload zone
+      // show preview in upload zone
       uploadContent.innerHTML = '';
       const preview = document.createElement('div');
       preview.className = 'file-preview';
@@ -668,7 +682,7 @@
     img.src = sourceImageObjectURL;
   }
 
-  // ======================== SCALE SELECTION ==================================
+  
   scaleGroup.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-scale]');
     if (!btn || isProcessing) return;
@@ -688,7 +702,7 @@
     outputDims.textContent = `Output: ${outW} × ${outH}`;
   }
 
-  // ======================== ENGINE & DEBLUR SELECTION ========================
+  
   engineGroup.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-engine]');
     if (!btn || isProcessing) return;
@@ -729,7 +743,7 @@
     }
   });
 
-  // ======================== PRESET SELECTION =================================
+  
   presetGroup.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-preset]');
     if (!btn || isProcessing) return;
@@ -757,7 +771,7 @@
     sliders.cinematic.input.value = p.cinematic ?? 0;
     sliders.cinematic.value.textContent = p.cinematic ?? 0;
     
-    // Apply Generative AI overrides for maximum
+    // apply Generative AI overrides for maximum
     if (p.sdMode && $('sdModeSelect')) {
       $('sdModeSelect').value = p.sdMode;
       $('sdRefineCheckbox').checked = true;
@@ -772,23 +786,23 @@
     }
   }
 
-  // ======================== ADVANCED SETTINGS ================================
+  
   advancedToggle.addEventListener('click', () => {
     advancedToggle.classList.toggle('open');
     advancedPanel.classList.toggle('open');
   });
 
-  // Slider input events
+  // slider input events
   Object.entries(sliders).forEach(([key, s]) => {
     s.input.addEventListener('input', () => {
       s.value.textContent = s.input.value;
-      // Deselect preset when user manually adjusts
+      // deselect preset when user manually adjusts
       presetGroup.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
       selectedPreset = null;
     });
   });
 
-  // ======================== PREVIEW AND BLOB UTILITIES =======================
+  
   async function base64ToBlobURL(base64Data, contentType = 'image/png') {
     const res = await fetch(base64Data);
     const blob = await res.blob();
@@ -836,7 +850,7 @@
     });
   }
 
-  // ======================== PROCESS ==========================================
+  
   processBtn.addEventListener('click', startProcessing);
 
   function startProcessing() {
@@ -852,7 +866,7 @@
   async function startNeuralProcessing() {
     isProcessing = true;
     
-    // Update UI to processing state
+    // update UI to processing state
     processBtn.classList.add('processing');
     processBtnText.textContent = 'Contacting AI...';
     processBtn.disabled = true;
@@ -872,7 +886,7 @@
 
     let creepTimer = null;
     try {
-      // Get base64 representation of source image
+      // get base64 representation of source image
       const srcCanvas = $('srcCanvas');
       srcCanvas.width = sourceW;
       srcCanvas.height = sourceH;
@@ -882,7 +896,7 @@
 
       updateProgress({ percent: 20, stage: 'Sending to GPU Server...', totalStages: 5, stageIndex: 1 });
 
-      // Start polling actual progress from GPU server during the network request
+      // start polling actual progress from GPU server during the network request
       creepTimer = setInterval(async () => {
         if (!isProcessing) {
           clearInterval(creepTimer);
@@ -914,11 +928,11 @@
             }
           }
         } catch (err) {
-          // Ignore connection errors during polling
+          // ignore connection errors during polling
         }
       }, 500);
 
-      // Call API (using absolute URL to support running index.html from file:// protocol)
+      // call API (using absolute URL to support running index.html from file:// protocol)
       const response = await fetch('http://localhost:8080/api/upscale', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -931,7 +945,7 @@
           double_pass: doublePassCheckbox.checked,
           face_restore: faceRestoreCheckbox.checked,
           post_sharpen: selectedPostSharpen,
-          // Advanced fine-tuning options
+          // advanced fine-tuning options
           sharpening: parseInt(sliders.sharpening.input.value),
           detail: parseInt(sliders.detail.input.value),
           contrast: parseInt(sliders.contrast.input.value),
@@ -961,7 +975,7 @@
       }
 
       if (!response.ok) {
-        // Try to parse the error response body for a meaningful message
+        // try to parse the error response body for a meaningful message
         let serverError = `AI server returned status ${response.status}`;
         try {
           const errBody = await response.json();
@@ -969,7 +983,7 @@
             serverError = errBody.error;
           }
         } catch (parseErr) {
-          // Response body wasn't JSON, use generic message
+          // response body wasn't JSON, use generic message
         }
         throw new Error(serverError);
       }
@@ -983,11 +997,11 @@
 
       updateProgress({ percent: 85, stage: 'Generating preview...', totalStages: 5, stageIndex: 3 });
 
-      // Convert full-resolution base64 string to Blob URL for fast and secure download
+      // b64 to blob url helper
       const fullResBlobUrl = await base64ToBlobURL(res.image);
-      resultDataUrl = fullResBlobUrl; // Keep for download button
+      resultDataUrl = fullResBlobUrl; // keep for download button
 
-      // Load full-resolution image to downsample for preview
+      // load full res
       const fullImg = new Image();
       await new Promise((resolve, reject) => {
         fullImg.onload = resolve;
@@ -1000,10 +1014,10 @@
 
       updateProgress({ percent: 95, stage: 'Rendering comparison...', totalStages: 5, stageIndex: 4 });
 
-      // Downsample for comparison preview
+      // downsample preview
       const previewUpscaledUrl = await downsampleImageIfNeeded(fullImg, 2048);
 
-      // Create scaled original canvas matching preview size
+      // original canvas
       const previewImg = new Image();
       await new Promise((resolve) => {
         previewImg.onload = resolve;
@@ -1020,14 +1034,14 @@
 
       const previewOriginalUrl = await canvasToBlobURL(origCanvas);
 
-      // Revoke old URLs
+      // free old blob urls
       if (originalObjectURL) URL.revokeObjectURL(originalObjectURL);
       if (upscaledObjectURL) URL.revokeObjectURL(upscaledObjectURL);
 
       originalObjectURL = previewOriginalUrl;
       upscaledObjectURL = previewUpscaledUrl;
 
-      // Load preview images into DOM
+      // load into DOM
       let loadedCount = 0;
       const onImageLoaded = () => {
         loadedCount++;
@@ -1039,21 +1053,21 @@
           comparisonInner.style.width = previewImg.width + 'px';
           comparisonInner.style.height = previewImg.height + 'px';
 
-          // Show the result view first so bounding box calculations are non-zero!
+          // show the result view first so bounding box calculations are non-zero!
           showView('result');
 
-          // Reset zoom/pan
+          // reset zoom/pan
           zoom = 1;
           panX = 0;
           panY = 0;
           updateTransform();
           fitToView(previewImg.width, previewImg.height);
 
-          // Reset slider
+          // reset slider
           sliderPos = 50;
           updateComparisonSlider();
 
-          // Update info
+          // update info
           infoDims.innerHTML = `${sourceW}x${sourceH} <span class="info-arrow">-></span> ${fullW}x${fullH}`;
           const totalElapsed = ((Date.now() - processStartTime) / 1000).toFixed(1);
           infoTime.textContent = totalElapsed + 's';
@@ -1068,7 +1082,7 @@
           const engineLabel = ' + AI';
           infoType.textContent = (typeLabels[res.detected_type] || res.detected_type || 'Photo') + engineLabel;
 
-          // If in Auto-Adaptive mode, update sliders dynamically
+          // sync auto sliders
           if (selectedPreset === 'auto' && res.auto_settings) {
             Object.entries(res.auto_settings).forEach(([key, val]) => {
               if (sliders[key]) {
@@ -1112,14 +1126,14 @@
       clearInterval(timerInterval);
       isProcessing = false;
       
-      // Reset button and view
+      // reset button and view
       processBtn.classList.remove('processing');
           $('cancelBtn').style.display = 'none';
       processBtnText.textContent = '⚡ Upscale Image';
       processBtn.disabled = false;
       showView('empty');
       
-      // Determine if it's a server error vs truly offline
+      // determine if it's a server error vs truly offline
       const errMsg = err.message || '';
       const isConnectionError = err instanceof TypeError || 
                                 errMsg.includes('Failed to fetch') || 
@@ -1128,7 +1142,7 @@
                                 errMsg.includes('abort');
       
       if (!isConnectionError) {
-        // Server responded with an error (OOM, credit limits, API errors, etc.) — show the actual reason
+        // server responded with an error (OOM, credit limits, API errors, etc.) — show the actual reason
         showToast('⚠️ Upscaling Failed: ' + (errMsg.length > 120 ? errMsg.slice(0, 120) + '...' : errMsg));
         alert('Upscaling Failed!\n\nError: ' + errMsg);
       } else {
@@ -1141,7 +1155,7 @@
   function startAlgorithmicProcessing() {
     isProcessing = true;
 
-    // Extract pixel data from source image
+    // extract pixel data from source image
     const srcCanvas = $('srcCanvas');
     srcCanvas.width = sourceW;
     srcCanvas.height = sourceH;
@@ -1150,7 +1164,7 @@
     const imageData = ctx.getImageData(0, 0, sourceW, sourceH);
     const buffer = imageData.data.buffer.slice(0); // copy since we transfer
 
-    // Gather options
+    // gather options
     const options = {
       sharpening: parseInt(sliders.sharpening.input.value),
       detail: parseInt(sliders.detail.input.value),
@@ -1162,7 +1176,7 @@
       preset: selectedPreset
     };
 
-    // Update UI
+    // update UI
     processBtn.classList.add('processing');
     processBtnText.textContent = 'Processing...';
     processBtn.disabled = true;
@@ -1174,7 +1188,7 @@
       progressTime.textContent = elapsed + 's elapsed';
     }, 100);
 
-    // Send to worker
+    // send to worker
     worker.postMessage({
       type: 'upscale',
       imageBuffer: buffer,
@@ -1190,12 +1204,12 @@
     progressPercent.textContent = percent + '%';
     progressStage.textContent = msg.stage;
 
-    // Update ring
+    // update ring
     const circumference = 2 * Math.PI * 72; // r=72
     const offset = circumference - (percent / 100) * circumference;
     progressRing.style.strokeDashoffset = offset;
 
-    // Update overall bar
+    // update overall bar
     if (msg.totalStages > 0) {
       const overall = ((msg.stageIndex + percent / 100) / msg.totalStages) * 100;
       progressBar.style.width = overall + '%';
@@ -1218,13 +1232,13 @@
     isProcessing = false;
     clearInterval(timerInterval);
 
-    // Reset button
+    // reset button
     processBtn.classList.remove('processing');
     $('cancelBtn').style.display = 'none';
     processBtnText.textContent = '⚡ Upscale Image';
     processBtn.disabled = false;
 
-    // Render result to canvas
+    // render result to canvas
     const resultCanvas = $('resultCanvas');
     resultCanvas.width = msg.width;
     resultCanvas.height = msg.height;
@@ -1232,21 +1246,21 @@
     const imageData = new ImageData(new Uint8ClampedArray(msg.imageBuffer), msg.width, msg.height);
     ctx.putImageData(imageData, 0, 0);
 
-    // Convert full resolution result canvas to blob URL for download
+    // convert full resolution result canvas to blob URL for download
     canvasToBlobURL(resultCanvas).then(async (fullResBlobUrl) => {
-      resultDataUrl = fullResBlobUrl; // Keep for download button
+      resultDataUrl = fullResBlobUrl; // keep for download button
 
-      // Create a temporary image to load the full-res output
+      // create a temporary image to load the full-res output
       const fullImg = new Image();
       await new Promise((resolve) => {
         fullImg.onload = resolve;
         fullImg.src = fullResBlobUrl;
       });
 
-      // Downsample for comparison preview
+      // downsample preview
       const previewUpscaledUrl = await downsampleImageIfNeeded(fullImg, 2048);
 
-      // Create scaled original canvas matching preview size
+      // original canvas
       const previewImg = new Image();
       await new Promise((resolve) => {
         previewImg.onload = resolve;
@@ -1263,14 +1277,14 @@
 
       const previewOriginalUrl = await canvasToBlobURL(origCanvas);
 
-      // Revoke old URLs
+      // free old blob urls
       if (originalObjectURL) URL.revokeObjectURL(originalObjectURL);
       if (upscaledObjectURL) URL.revokeObjectURL(upscaledObjectURL);
 
       originalObjectURL = previewOriginalUrl;
       upscaledObjectURL = previewUpscaledUrl;
 
-      // Load preview images into DOM
+      // load into DOM
       let loadedCount = 0;
       const onImageLoaded = () => {
         loadedCount++;
@@ -1282,21 +1296,21 @@
           comparisonInner.style.width = previewImg.width + 'px';
           comparisonInner.style.height = previewImg.height + 'px';
 
-          // Show the result view first so bounding box calculations are non-zero!
+          // show the result view first so bounding box calculations are non-zero!
           showView('result');
 
-          // Reset zoom/pan
+          // reset zoom/pan
           zoom = 1;
           panX = 0;
           panY = 0;
           updateTransform();
           fitToView(previewImg.width, previewImg.height);
 
-          // Reset slider
+          // reset slider
           sliderPos = 50;
           updateComparisonSlider();
 
-          // Update info
+          // update info
           infoDims.innerHTML = `${sourceW}x${sourceH} <span class="info-arrow">-></span> ${msg.width}x${msg.height}`;
           const totalElapsed = ((Date.now() - processStartTime) / 1000).toFixed(1);
           infoTime.textContent = totalElapsed + 's';
@@ -1311,7 +1325,7 @@
           const engineLabel = selectedEngine === 'neural' ? ' + AI' : '';
           infoType.textContent = (typeLabels[msg.detectedType] || msg.detectedType || '—') + engineLabel;
 
-          // If in Auto-Adaptive mode, update sliders dynamically to show what was selected
+          // sync auto sliders to show what was selected
           if (selectedPreset === 'auto' && msg.autoSettings) {
             Object.entries(msg.autoSettings).forEach(([key, val]) => {
               if (sliders[key]) {
@@ -1319,7 +1333,7 @@
                 sliders[key].value.textContent = val;
               }
             });
-            // Keep Auto active since updating sliders triggers change
+            // keep Auto active since updating sliders triggers change
             presetGroup.querySelectorAll('.btn-preset').forEach(b => {
               b.classList.toggle('active', b.dataset.preset === 'auto');
             });
@@ -1355,21 +1369,21 @@
     showToast('Error: ' + message);
   }
 
-  // ======================== VIEW MANAGEMENT ==================================
+  
   function showView(view) {
     emptyState.style.display = view === 'empty' ? 'flex' : 'none';
     processingState.classList.toggle('active', view === 'processing');
     resultState.classList.toggle('active', view === 'result');
   }
 
-  // ======================== COMPARISON SLIDER ================================
+  
   function updateComparisonSlider() {
     compSlider.style.left = sliderPos + '%';
     imgUpscaled.style.clipPath = `inset(0 0 0 ${sliderPos}%)`;
     imgOriginal.style.clipPath = `inset(0 ${100 - sliderPos}% 0 0)`;
   }
 
-  // Mouse events for comparison slider
+  // mouse events for comparison slider
   compSlider.addEventListener('mousedown', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1387,7 +1401,7 @@
     isDraggingSlider = false;
   });
 
-  // Touch events for comparison slider
+  // touch events for comparison slider
   compSlider.addEventListener('touchstart', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1406,7 +1420,7 @@
     isDraggingSlider = false;
   });
 
-  // ======================== ZOOM & PAN =======================================
+  
   function updateTransform() {
     comparisonInner.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
     zoomLevel.textContent = Math.round(zoom * 100) + '%';
@@ -1422,7 +1436,7 @@
     updateTransform();
   }
 
-  // Mouse wheel zoom
+  // mouse wheel zoom
   comparisonContainer.addEventListener('wheel', (e) => {
     if (!resultState.classList.contains('active')) return;
     e.preventDefault();
@@ -1434,13 +1448,13 @@
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
     zoom = Math.max(0.1, Math.min(5, zoom * delta));
 
-    // Zoom toward mouse position
+    // zoom toward mouse position
     panX = mouseX - (mouseX - panX) * (zoom / oldZoom);
     panY = mouseY - (mouseY - panY) * (zoom / oldZoom);
     updateTransform();
   }, { passive: false });
 
-  // Pan by dragging
+  // pan by dragging
   comparisonContainer.addEventListener('mousedown', (e) => {
     if (isDraggingSlider) return;
     if (!resultState.classList.contains('active')) return;
@@ -1462,7 +1476,7 @@
     comparisonContainer.classList.remove('grabbing');
   });
 
-  // Touch pan
+  // touch pan
   let lastTouchDist = 0;
   comparisonContainer.addEventListener('touchstart', (e) => {
     if (isDraggingSlider) return;
@@ -1504,7 +1518,7 @@
     lastTouchDist = 0;
   });
 
-  // Zoom buttons
+  // zoom buttons
   zoomIn.addEventListener('click', () => {
     zoom = Math.min(5, zoom * 1.25);
     updateTransform();
@@ -1522,7 +1536,7 @@
     if (imgW && imgH) fitToView(imgW, imgH);
   });
 
-  // ======================== DOWNLOAD =========================================
+  
   downloadBtn.addEventListener('click', () => {
     if (!resultDataUrl) return;
     const a = document.createElement('a');
@@ -1535,9 +1549,9 @@
     document.body.removeChild(a);
   });
 
-  // ======================== NEW IMAGE ========================================
+  
   newBtn.addEventListener('click', () => {
-    // Revoke object URLs to free memory
+    // revoke object URLs to free memory
     if (sourceImageObjectURL) {
       URL.revokeObjectURL(sourceImageObjectURL);
       sourceImageObjectURL = null;
@@ -1559,7 +1573,7 @@
     fileInput.value = '';
     outputDims.textContent = '';
 
-    // Reset upload zone
+    // reset upload zone
     uploadContent.innerHTML = `
       <div class="upload-icon">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1575,7 +1589,7 @@
     showView('empty');
   });
 
-  // ======================== TOAST ============================================
+  
   function showToast(message) {
     const toast = document.createElement('div');
     toast.className = 'toast';
@@ -1584,7 +1598,7 @@
     setTimeout(() => toast.remove(), 4000);
   }
 
-  // ======================== INIT =============================================
+  
   initWorker();
   showView('empty');
   applyPresetToSliders('auto');

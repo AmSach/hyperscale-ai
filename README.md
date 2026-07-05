@@ -1,71 +1,71 @@
 
+# HyperScale AI
 
-```
-  ▲    █   █ █   █ █▀▀▀█ █▀▀▀ █▀▀▀▄ █▀▀▀▀ █▀▀▀█ █▀▀▀▄ █     █▀▀▀▀   ▲
-  ★   █▀▀▀█ ▀▄▄▄▀ █▄▄▄█ █▀▀▀ █▄▄▄▀ ▀▀▀▀█ █     █▄▄▄█ █     █▀▀▀    ★
-  ●   █   █   █   █     █▄▄▄ █   █ ▄▄▄▄█ █▄▄▄█ █   █ █▄▄▄▄ █▄▄▄▄   ●
-```
+free topaz photo ai alternative that runs on your gpu. no account. no $200/year. just actual good upscaling.
 
-okay so i got really fed up with topaz and all those $200/year cloud upscalers turning photos into this weird smooth plastic garbage. every portrait looked like it was rendered in a video game cutscene from 2009. so i spent a few weekends wiring up actual state-of-the-art vision transformers to run directly on your GPU, offline, for free.
+> **[→ try it at hyperscale-ai-amsachs-projects.vercel.app](https://hyperscale-ai-amsachs-projects.vercel.app)**
 
-this runs 100% on your machine. no account, no subscription, no "processing queue", no uploading your photos to some server in oregon.
+![before and after comparison — climber photo upscaled 4x with HAT-GAN, skin pores visible at 100% zoom](climber_out_hat_only.png)
 
 ---
 
-## what it actually does
-
-standard upscalers (RealESRGAN, Topaz Photo AI at default settings, etc.) work by learning average textures from training data and pasting them onto your image. the result looks sharp from a distance but falls apart under a zoom — skin turns to porcelain, fabric loses weave detail, hair clumps into plastic strands.
-
-**HyperScale uses HAT-GAN (Hybrid Attention Transformer) as the default engine.** HAT looks at wide patches of the image at once using self-attention, same core idea as GPT but for pixels. it figures out what *should* be in the fine details based on structure and context instead of averaging it out. the difference on portraits and landscapes is night and day.
-
-for extreme upscaling (8x to 16x), there is a second pass using Stable Diffusion ControlNet Tile. it synthesizes realistic high-frequency texture while keeping the geometry and color locked to the original — so it is not hallucinating a completely different image, it is filling in what *plausibly belongs there*.
-
-faces get special treatment. a GFPGAN v1.4 pass runs automatically on detected faces to preserve eye symmetry, lip shape, and skin tone so they do not end up looking like wax figures.
-
-the server also handles VRAM tiling dynamically so it does not crash on 6GB or 8GB cards when you throw a large image at it.
-
----
-
-## setup
-
-the installer handles everything — Python, venv, PyTorch, CUDA, all the model weights. you just run one command:
+## quick start
 
 ```powershell
-python -c "import urllib.request, subprocess; open('install.ps1', 'wb').write(urllib.request.urlopen('https://hyperscale-ai-amsachs-projects.vercel.app/install.ps1').read()); subprocess.run(['powershell', '-ExecutionPolicy', 'Bypass', '-File', 'install.ps1'])"
-```
-
-or download [`install.bat`](https://hyperscale-ai-amsachs-projects.vercel.app/install.bat) and double-click it. same result.
-
-if you want to do it yourself:
-
-```bash
-git clone https://github.com/AmSach/hyperscale-ai.git
-cd hyperscale-ai
-python -m venv venv
-venv\Scripts\activate
-python check_and_install_deps.py
-python download_all_models.py
+python -m venv venv && venv\Scripts\activate
+python check_and_install_deps.py && python download_all_models.py
 run_server.bat
 ```
 
----
+open `localhost:8080`. drop a photo. hit upscale. that's it.
 
-## the interface
-
-opens at `http://localhost:8080`. there is a full-frame before/after comparison slider — not a cropped thumbnail, the actual full image — so you can see what is happening at every part of the photo. live inference speed and VRAM usage shown in real time.
+(first run downloads a few GB of model weights. after that it's instant.)
 
 ---
 
-## models downloaded during setup
+## what it does
+
+- **4x to 8x upscaling** on your GPU, 100% offline, no upload
+- **HAT-GAN** (Hybrid Attention Transformer) as the default engine — looks at big patches of the image and reasons about texture instead of averaging from a lookup table. portraits look like portraits, not porcelain
+- **Stable Diffusion ControlNet Tile** pass for extreme upscales — synthesizes realistic micro-texture (skin pores, fabric weave, leaf veins) while keeping your original colors and shapes locked
+- **GFPGAN v1.4 face pass** runs automatically — preserves eye symmetry, lip shape, skin tone so faces don't wax out
+- **dynamic VRAM tiling** — adjusts tile size based on how much free VRAM you actually have right now, not just what your card has in total. works on 6GB cards
+- **before/after comparison slider** at full native resolution (not a cropped thumbnail)
+- **CLI version** if you'd rather drag a file into a terminal
+
+---
+
+## how it works (the part i'm actually proud of)
+
+standard upscalers learn average textures from training data and paste them onto your image. looks sharp from a distance, falls apart under zoom — skin turns to porcelain, fabric loses weave, hair clumps into plastic strands. that's the "topaz look" people talk about.
+
+HAT-GAN fixes the averaging problem. it uses self-attention to look at wide patches of the image at once, same core idea as GPT but for pixels, so it figures out what *should* be in the fine detail based on context instead of blending a lookup table.
+
+for the SD pass, the naive approach is to run Stable Diffusion on the output after upscaling — but SD is generative, it wants to change things, so you end up with slightly wrong eyebrows and color drift. the fix is frequency separation: throw away SD's low frequencies entirely (keep the original's colors and shapes) and only inject SD's high-frequency micro-texture layer. result: structure 100% preserved, but now there are actual pores visible when you zoom in.
+
+i also re-ordered the pipeline so SD refinement runs *before* the final HAT upscale instead of after it. same output quality. 3 minutes instead of 30. figured that out at 1am and it genuinely made my day.
+
+---
+
+## models
 
 all weights go into `/models/` on first run:
 
-- `Real_HAT_GAN_sharper.pth` — the main engine, runs by default
-- `HAT_SRx4_ImageNet-pretrain.pth` — more faithful to original content, less aggressive
-- `GFPGANv1.4.pth` — face restoration
-- `RealESRGAN_x4plus.pth` and `RealESRGAN_x4plus_anime_6B.pth` — fallback options
-- `realesr-general-x4v3.pth` — faster, lighter, good for batch jobs
+| model | good for |
+|---|---|
+| `Real_HAT_GAN_sharper.pth` | default. best for real-world photos |
+| `HAT_SRx4_ImageNet-pretrain.pth` | more faithful, less aggressive |
+| `GFPGANv1.4.pth` | face restoration (runs automatically) |
+| `RealESRGAN_x4plus.pth` | fallback, general purpose |
+| `RealESRGAN_x4plus_anime_6B.pth` | anime / line art |
+| `realesr-general-x4v3.pth` | fast, compact, good for batch |
 
 ---
 
-MIT License. do whatever you want with it.
+## requirements
+
+- python 3.10+
+- NVIDIA GPU with 6GB+ VRAM recommended (works on CPU but slow)
+- CUDA 11.8+
+
+do whatever you want with this i dont care lol.

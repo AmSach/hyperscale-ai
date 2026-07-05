@@ -1,9 +1,7 @@
-"""SuperAI Upscaler — Professional GPU Server using Real-ESRGAN Python API
-   Uses CUDA directly via PyTorch for genuine super-resolution.
-"""
+# superai upscaler — professional gpu server using real-esrgan python api
 import os
 import sys
-# Monkeypatch torchvision.transforms.functional_tensor for basicsr compatibility
+# basicsr fix for newer torchvision versions
 import types
 class MockModule(types.ModuleType):
     def __getattr__(self, name):
@@ -22,7 +20,7 @@ import numpy as np
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from PIL import Image, ImageFilter, ImageEnhance, ImageFile
 
-# Robust loading
+# fix truncated files
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 Image.MAX_IMAGE_PIXELS = None
 
@@ -31,14 +29,13 @@ DIR = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(DIR, "models")
 os.makedirs(MODELS_DIR, exist_ok=True)
 
-# ======================== LAZY GLOBALS ========================================
-# These are initialized on first request to avoid slow startup
+# load these later so server boots fast
 _torch = None
 _device = None
 _upsampler_cache = {}  # model_name -> RealESRGANer instance
 _spandrel_cache = {}   # model_name -> spandrel model instance
 _face_enhancer = None
-_upscale_lock = threading.Lock()  # Serialize GPU inference to prevent VRAM thrashing
+_upscale_lock = threading.Lock()  # serialize GPU inference to prevent VRAM thrashing
 _should_abort = False
 
 _current_progress = {
@@ -52,7 +49,7 @@ _current_progress = {
 }
 
 def _init_torch():
-    """Lazy-load PyTorch and detect CUDA."""
+    # lazy-load pytorch and detect cuda
     global _torch, _device
     if _torch is not None:
         return
@@ -70,8 +67,7 @@ def _init_torch():
         _device = torch.device('cpu')
         print("[WARNING] CUDA not available - running on CPU (slow)")
 
-# ======================== MODEL DEFINITIONS ===================================
-# Each model has: network architecture, scale factor, model URL, and description
+# model config registry
 
 MODEL_REGISTRY = {
     'realesrgan-x4plus': {
@@ -154,12 +150,7 @@ MODEL_REGISTRY = {
 DEFAULT_MODEL = 'hat-sharper'
 
 def _get_model_path(model_name):
-    """Get local path for a model, downloading if needed.
-    
-    Handles two cases:
-      - RealESRGAN-style models: have a 'url' key, filename derived from URL
-      - Spandrel/HAT models: have a 'local_file' key, no URL (must be pre-downloaded)
-    """
+    # get local path for a model, downloading if needed
     info = MODEL_REGISTRY.get(model_name)
     if not info:
         info = MODEL_REGISTRY[DEFAULT_MODEL]
@@ -208,24 +199,23 @@ def _get_model_path(model_name):
 
     return path, info
 
-
-# Maximum output megapixels to prevent OOM crashes
-# Dynamic caps: GPU allows high resolutions, CPU is more restricted
+# maximum output megapixels to prevent OOM crashes
+# dynamic caps: GPU allows high resolutions, CPU is more restricted
 MAX_GPU_MEGAPIXELS = 150  # ~12K portrait (e.g. 9000x16000)
 MAX_CPU_MEGAPIXELS = 40   # ~6K (e.g. 5000x8000)
 
 def _build_upsampler(model_name, scale, tile_size=400, device_name='cuda', input_megapixels=0):
-    """Build or retrieve a cached RealESRGANer instance."""
+    # build or retrieve a cached realesrganer instance
     global _upsampler_cache
     
     _init_torch()
     
-    # Handle CPU fallback
+    # handle CPU fallback
     if device_name == 'cpu' or not _torch.cuda.is_available():
         device_name = 'cpu'
         dev = _torch.device('cpu')
         half = False
-        # Use smaller tiles for large images on CPU to reduce peak memory
+        # use smaller tiles for large images on CPU to reduce peak memory
         if input_megapixels > 4:
             tile_size = 128
         else:
@@ -234,7 +224,7 @@ def _build_upsampler(model_name, scale, tile_size=400, device_name='cuda', input
         device_name = 'cuda'
         dev = _torch.device('cuda')
         half = True
-        # Determine tile size based on VRAM
+        # determine tile size based on VRAM
         vram_gb = _torch.cuda.get_device_properties(0).total_memory / 1024**3
         if vram_gb < 4:
             tile_size = 200
@@ -255,9 +245,9 @@ def _build_upsampler(model_name, scale, tile_size=400, device_name='cuda', input
     model_path, info = _get_model_path(model_name)
     native_scale = info['scale']
     
-    # Build the appropriate network architecture
+    # make the network model
     if model_name in ('realesr-general-x4v3', 'realesr-animevideov3'):
-        # Compact architecture (SRVGGNetCompact)
+        # compact architecture (SRVGGNetCompact)
         from realesrgan.archs.srvgg_arch import SRVGGNetCompact
         if model_name == 'realesr-animevideov3':
             model = SRVGGNetCompact(num_in_ch=3, num_out_ch=3, num_feat=64, num_conv=16, upscale=4, act_type='prelu')
@@ -268,7 +258,7 @@ def _build_upsampler(model_name, scale, tile_size=400, device_name='cuda', input
     elif model_name == 'realesrgan-x2plus':
         model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
     else:
-        # Standard RRDBNet (x4plus, x4net)
+        # standard RRDBNet (x4plus, x4net)
         model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
     
     upsampler = RealESRGANer(
@@ -286,9 +276,8 @@ def _build_upsampler(model_name, scale, tile_size=400, device_name='cuda', input
     print(f"[OK] Model loaded: {model_name} on {device_name} (tile={tile_size}, fp16={half})")
     return upsampler
 
-
 def _get_spandrel_model(model_name, device_name='cuda'):
-    """Load a model via spandrel (supports HAT, SwinIR, DAT, etc.)"""
+    # load a model via spandrel (supports hat, swinir, dat, etc.)
     global _spandrel_cache
     
     cache_key = f"{model_name}_{device_name}"
@@ -312,7 +301,7 @@ def _get_spandrel_model(model_name, device_name='cuda'):
         model.is_fp16 = False
         model.is_bf16 = False
         
-        # Try casting to bfloat16 first (preserves dynamic range, prevents NaN overflows)
+        # try casting to bfloat16 first (preserves dynamic range, prevents NaN overflows)
         if _torch.cuda.is_bf16_supported():
             try:
                 model = model.bfloat16()
@@ -321,7 +310,7 @@ def _get_spandrel_model(model_name, device_name='cuda'):
             except Exception as e:
                 print(f"[SPANDREL] Model does not support bfloat16 casting: {e}")
                 
-        # Fallback to fp16 if bf16 is not supported or failed
+        # fallback to fp16 if bf16 is not supported or failed
         if not model.is_bf16 and hasattr(model, 'half'):
             try:
                 model = model.half()
@@ -336,18 +325,17 @@ def _get_spandrel_model(model_name, device_name='cuda'):
     print(f"[OK] Spandrel model loaded: {model_name} (arch={info['arch']}, scale={info['scale']}, fp16={getattr(model, 'is_fp16', False)})")
     return model
 
-
 def _get_adaptive_spandrel_tile_params(device_name):
-    """Dynamically determine tile size and pad based on actual free VRAM."""
+    # dynamically determine tile size and pad based on actual free vram
     if device_name != 'cuda' or not _torch.cuda.is_available():
-        return 256, 32  # CPU can handle larger tiles as it uses system RAM
+        return 256, 32  # cpu can handle larger tiles as it uses system RAM
         
     free_mem, total_mem = _torch.cuda.mem_get_info()
     free_gb = free_mem / 1024**3
     vram_gb = total_mem / 1024**3
     is_bf16 = _torch.cuda.is_bf16_supported()
     
-    # Adjust tile size dynamically if free VRAM is low
+    # adjust tile size dynamically if free VRAM is low
     if free_gb < 2.0:
         sp_tile = 128
         sp_pad = 16
@@ -362,33 +350,28 @@ def _get_adaptive_spandrel_tile_params(device_name):
             
     return sp_tile, sp_pad
 
-
 def _spandrel_tiled_upscale(model, img_np, scale, tile_size=256, tile_pad=32, device_name='cuda'):
-    """
-    Tiled inference for spandrel models.
-    img_np: RGB numpy array (H, W, 3) uint8
-    Returns: RGB numpy array (H*scale, W*scale, 3) uint8
-    """
+    # tiled inference for spandrel models
     import torch
     h, w, c = img_np.shape
     out_h, out_w = h * scale, w * scale
     
-    # Pre-allocate output
+    # output buffer allocation
     output = np.zeros((out_h, out_w, c), dtype=np.uint8)
     
-    # Calculate tiles
+    # calculate tiles
     tiles_x = max(1, (w + tile_size - 1) // tile_size)
     tiles_y = max(1, (h + tile_size - 1) // tile_size)
     total_tiles = tiles_x * tiles_y
     
-    # Determine adaptive batch size based on device & VRAM
+    # batch size helper
     if device_name == 'cpu':
         batch_size = 1
     else:
         vram_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3 if torch.cuda.is_available() else 0
         is_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False
         
-        # Check actual available free VRAM dynamically
+        # check actual available free VRAM dynamically
         free_mem, total_mem = torch.cuda.mem_get_info() if torch.cuda.is_available() else (0, 0)
         free_gb = free_mem / 1024**3
         
@@ -411,11 +394,11 @@ def _spandrel_tiled_upscale(model, img_np, scale, tile_size=256, tile_pad=32, de
     import time
     start_t = time.time()
     
-    # Target size for input tiles (including padding)
+    # target size for input tiles (including padding)
     target_h = tile_size + 2 * tile_pad
     target_w = tile_size + 2 * tile_pad
     
-    # Prepare all tiles coordinates
+    # prepare all tiles coordinates
     tiles_info = []
     for iy in range(tiles_y):
         for ix in range(tiles_x):
@@ -434,7 +417,7 @@ def _spandrel_tiled_upscale(model, img_np, scale, tile_size=256, tile_pad=32, de
                 'x_start_pad': x_start_pad, 'y_start_pad': y_start_pad, 'x_end_pad': x_end_pad, 'y_end_pad': y_end_pad
             })
             
-    # Process in batches
+    # process in batches
     for i in range(0, len(tiles_info), batch_size):
         global _should_abort
         if _should_abort:
@@ -445,17 +428,17 @@ def _spandrel_tiled_upscale(model, img_np, scale, tile_size=256, tile_pad=32, de
         batch_tensors = []
         
         for item in batch_items:
-            # Extract tile
+            # extract tile
             tile = img_np[item['y_start_pad']:item['y_end_pad'], item['x_start_pad']:item['x_end_pad'], :]
             tile_h, tile_w, _ = tile.shape
             
-            # Pad tile if it is smaller than target_h x target_w (reflection padding at bottom/right)
+            # pad tile if it is smaller than target_h x target_w (reflection padding at bottom/right)
             h_pad = target_h - tile_h
             w_pad = target_w - tile_w
             if h_pad > 0 or w_pad > 0:
                 tile = np.pad(tile, ((0, h_pad), (0, w_pad), (0, 0)), mode='reflect')
                 
-            # Convert to tensor: (H,W,C) -> (C,H,W) float32 [0,1]
+            # convert to tensor: (H,W,C) -> (C,H,W) float32 [0,1]
             t = torch.from_numpy(tile.astype(np.float32) / 255.0).permute(2, 0, 1)
             if device_name == 'cuda':
                 t = t.cuda()
@@ -465,10 +448,10 @@ def _spandrel_tiled_upscale(model, img_np, scale, tile_size=256, tile_pad=32, de
                 t = t.half()
             batch_tensors.append(t)
             
-        # Stack into a batch tensor (B, C, H, W)
+        # stack into a batch tensor (B, C, H, W)
         batch_tensor = torch.stack(batch_tensors)
         
-        # Inference
+        # inference
         with torch.no_grad():
             if use_bf16:
                 with torch.amp.autocast('cuda', dtype=torch.bfloat16):
@@ -476,19 +459,19 @@ def _spandrel_tiled_upscale(model, img_np, scale, tile_size=256, tile_pad=32, de
             else:
                 out_batch = model(batch_tensor)
                 
-        # Convert to uint8 directly on GPU/CPU to save memory and avoid float32 allocation
+        # convert to uint8 directly on GPU/CPU to save memory and avoid float32 allocation
         out_batch = (out_batch.float() * 255.0).clamp(0, 255).to(torch.uint8)
         out_batch = out_batch.cpu().permute(0, 2, 3, 1).numpy()
         
         for idx, item in enumerate(batch_items):
             out_tile = out_batch[idx] # (H_out, W_out, C)
             
-            # Crop back if it was padded
+            # crop back if it was padded
             tile_h = item['y_end_pad'] - item['y_start_pad']
             tile_w = item['x_end_pad'] - item['x_start_pad']
             out_tile = out_tile[0:tile_h*scale, 0:tile_w*scale, :]
             
-            # Coordinates in output space (remove padding)
+            # coordinates in output space (remove padding)
             out_x_start = item['x_start'] * scale
             out_y_start = item['y_start'] * scale
             out_x_end = item['x_end'] * scale
@@ -509,13 +492,13 @@ def _spandrel_tiled_upscale(model, img_np, scale, tile_size=256, tile_pad=32, de
         remaining_tiles = total_tiles - tile_idx
         eta_seconds = remaining_tiles * avg_tile_time
         
-        # Format ETA
+        # format ETA
         if eta_seconds > 60:
             eta_str = f"{int(eta_seconds // 60)}m {int(eta_seconds % 60)}s"
         else:
             eta_str = f"{eta_seconds:.1f}s"
             
-        # Update global progress
+        # update global progress
         global _current_progress
         _current_progress.update({
             'active': True,
@@ -527,28 +510,24 @@ def _spandrel_tiled_upscale(model, img_np, scale, tile_size=256, tile_pad=32, de
             'stage': f"Processing tiles ({tile_idx}/{total_tiles})"
         })
             
-        # Print status every batch (or on first/last tile)
+        # print status every batch (or on first/last tile)
         if i == 0 or tile_idx % (batch_size * 5) == 0 or tile_idx == total_tiles:
             print(f"\tTile {tile_idx}/{total_tiles} | Speed: {avg_tile_time:.2f}s/tile ({1.0/avg_tile_time:.2f} tiles/s) | ETA: {eta_str}", flush=True)
             
     return output
 
-
 def _replicate_upscale(img_bytes, scale, api_key):
-    """
-    Call Replicate Cloud API to run SUPIR upscaling.
-    Natively runs on A100 GPU and completes in 10-25 seconds.
-    """
+    # call replicate cloud api to run supir upscaling
     import requests
     import time
     
     print(f"[REPLICATE] Preparing request for Cloud SUPIR (scale={scale}x)...")
     
-    # Convert image to data URI
+    # convert image to data URI
     img_b64 = base64.b64encode(img_bytes).decode('utf-8')
     data_uri = f"data:image/png;base64,{img_b64}"
     
-    # Replicate API endpoint
+    # replicate API endpoint
     url = "https://api.replicate.com/v1/predictions"
     
     headers = {
@@ -556,7 +535,7 @@ def _replicate_upscale(img_bytes, scale, api_key):
         "Content-Type": "application/json"
     }
     
-    # Scale parameter for cjwbw/supir (upscale input parameter must be an integer)
+    # scale parameter for cjwbw/supir (upscale input parameter must be an integer)
     upscale_val = int(max(1, min(8, scale)))
     
     payload = {
@@ -564,8 +543,8 @@ def _replicate_upscale(img_bytes, scale, api_key):
         "input": {
             "image": data_uri,
             "upscale": upscale_val,
-            "edm_steps": 30, # Lower steps for speed (30 is very fast and high quality)
-            "use_llava": False, # LLaVA captioning is disabled for speed
+            "edm_steps": 30, # lower steps for speed (30 is very fast and high quality)
+            "use_llava": False, # llava captioning is disabled for speed
             "sampler": "Euler",
             "cfg_scale": 4,
             "control_scale": 1.0,
@@ -583,7 +562,7 @@ def _replicate_upscale(img_bytes, scale, api_key):
         get_url = prediction["urls"]["get"]
         print(f"[REPLICATE] Prediction created! ID: {prediction_id}. Polling status...")
         
-        # Poll for completion
+        # poll for completion
         start_time = time.time()
         max_wait = 300 # 5 minutes max
         
@@ -601,13 +580,13 @@ def _replicate_upscale(img_bytes, scale, api_key):
                 if not output_url:
                     raise RuntimeError("Replicate succeeded but returned no output URL.")
                 
-                # Download output image
+                # download output image
                 print(f"[REPLICATE] Downloading result from: {output_url}")
                 img_resp = requests.get(output_url, timeout=60)
                 if img_resp.status_code != 200:
                     raise RuntimeError(f"Failed to download output image: {img_resp.status_code}")
                     
-                # Load as RGB numpy array
+                # load as RGB numpy array
                 out_img = Image.open(io.BytesIO(img_resp.content)).convert('RGB')
                 return np.array(out_img)
                 
@@ -624,24 +603,23 @@ def _replicate_upscale(img_bytes, scale, api_key):
         traceback.print_exc()
         raise e
 
-
 def free_gpu_memory():
-    """Unload heavy models to free up VRAM for active steps."""
+    # unload heavy models to free up vram for active steps
     global _sd_refine_pipeline, _spandrel_cache, _upsampler_cache, _face_enhancer, _face_enhancer_cache
     import gc
     
-    # Unload Stable Diffusion pipeline
+    # unload Stable Diffusion pipeline
     if _sd_refine_pipeline is not None:
         print("[GPU] Unloading Stable Diffusion pipeline to free VRAM...")
         _sd_refine_pipeline = None
         
-    # Clear spandrel models cache
+    # clear spandrel models cache
     _spandrel_cache.clear()
     _upsampler_cache.clear()
     _face_enhancer_cache.clear()
     _face_enhancer = None
     
-    # Run garbage collection and empty CUDA cache
+    # run garbage collection and empty CUDA cache
     gc.collect()
     if _torch is not None and _torch.cuda.is_available():
         _torch.cuda.empty_cache()
@@ -668,14 +646,14 @@ def _get_sd_refine_pipeline(device_name='cuda'):
         safety_checker=None
     )
     
-    # Configure high-quality DPM++ 2M Karras scheduler for maximum clarity and detail
+    # configure high-quality DPM++ 2M Karras scheduler for maximum clarity and detail
     from diffusers import DPMSolverMultistepScheduler
     pipe.scheduler = DPMSolverMultistepScheduler.from_config(
         pipe.scheduler.config, 
         use_karras_sigmas=True
     )
     
-    # Memory Optimizations for 6GB VRAM
+    # memory Optimizations for 6GB VRAM
     if device_name == 'cuda' and torch.cuda.is_available():
         pipe.enable_attention_slicing()
         pipe.enable_vae_slicing()
@@ -692,13 +670,7 @@ def _get_sd_refine_pipeline(device_name='cuda'):
     _sd_refine_pipeline = pipe
     return pipe
 def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_strength=0.20, device_name='cuda', mode='hybrid', tile_size_override=0, controlnet_scale=0.80, detail_boost=1.30, detail_threshold=50.0, sd_refine_stage='post'):
-    """
-    Refine upscaled image using SD 1.5 + ControlNet Tile in a tiled manner.
-    This prevents VRAM OOM, runs at native resolution, and avoids waxy/painterly downscaling artifacts.
-    Supports two modes:
-      - 'hybrid': preserves original colors/shapes 100% via native frequency separation.
-      - 'full': directly blends SD output, allowing structural refinement.
-    """
+    # refine upscaled image using sd 1.5 + controlnet tile in a tiled manner
     global _should_abort
     import torch
     from PIL import Image
@@ -707,7 +679,7 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
     
     pipe = _get_sd_refine_pipeline(device_name=device_name)
     
-    # Calculate inference steps to guarantee at least 12 actual denoising steps
+    # calculate inference steps to guarantee at least 12 actual denoising steps
     # (since actual steps = int(num_inference_steps * denoising_strength))
     desired_steps = 12
     steps_to_run = max(20, int(desired_steps / max(0.01, denoising_strength)))
@@ -715,7 +687,7 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
     
     H, W, C = img_np_bgr.shape
 
-    # 1. Run face detection to protect faces from Stable Diffusion warping/distortion
+    # 1. face protect detection to prevent sd warp
     face_boxes = []
     try:
         dev = torch.device(device_name if (device_name == 'cuda' and torch.cuda.is_available()) else 'cpu')
@@ -723,7 +695,7 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
         if enhancer is not None:
             enhancer.face_helper.clean_all()
             enhancer.face_helper.read_image(img_np_bgr)
-            # Detect faces with eye distance threshold of 5 pixels (skip extremely small noise)
+            # detect faces with eye distance threshold of 5 pixels (skip extremely small noise)
             enhancer.face_helper.get_face_landmarks_5(only_center_face=False, eye_dist_threshold=5)
             if len(enhancer.face_helper.det_faces) > 0:
                 print(f"[FACE-PROTECT] Detected {len(enhancer.face_helper.det_faces)} face(s) to protect from SD warping.")
@@ -732,7 +704,7 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
     except Exception as e:
         print(f"[FACE-PROTECT] Face detection failed or skipped: {e}")
 
-    # Build face mask with smooth feathered edges
+    # feather face mask
     face_mask = np.zeros((H, W, 1), dtype=np.float32)
     if len(face_boxes) > 0:
         for box in face_boxes:
@@ -742,7 +714,7 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
             x2 = min(W, x2)
             y2 = min(H, y2)
             
-            # Pad the bounding box slightly (30%) to cover the head/hair
+            # pad the bounding box slightly (30%) to cover the head/hair
             fw = x2 - x1
             fh = y2 - y1
             pad_x = int(fw * 0.3)
@@ -755,13 +727,13 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
             
             face_mask[py1:py2, px1:px2] = 1.0
             
-        # Smooth the mask transition using Gaussian blur
+        # smooth the mask transition using Gaussian blur
         blur_k = int(min(H, W) * 0.02) | 1
         blur_k = max(15, blur_k)
         face_mask = cv2.GaussianBlur(face_mask, (blur_k, blur_k), 0)
         face_mask = np.expand_dims(face_mask, axis=-1)
     
-    # Determine tile size based on GPU memory capacity
+    # determine tile size based on GPU memory capacity
     if tile_size_override > 0:
         tile_size = tile_size_override
     elif device_name == 'cuda' and torch.cuda.is_available():
@@ -781,20 +753,20 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
     else:
         tile_size = 512
         
-    # Adjust tile_size if the image is smaller in one dimension
+    # adjust tile_size if the image is smaller in one dimension
     tile_size = min(tile_size, H, W)
-    # Ensure tile_size is a multiple of 8
+    # ensure tile_size is a multiple of 8
     tile_size = max(64, (tile_size // 8) * 8)
     
     overlap = min(64, tile_size // 4)
     stride = tile_size - overlap
     
-    # Helper to generate tile blending weight mask in 1D
+    # helper to generate tile blending weight mask in 1D
     def get_tile_mask_1d(starts, tile_idx, t_size, ov):
         mask = np.ones(t_size, dtype=np.float32)
         s_i = starts[tile_idx]
         
-        # Left boundary transition (with tile tile_idx - 1)
+        # left boundary transition (with tile tile_idx - 1)
         if tile_idx > 0:
             s_prev = starts[tile_idx - 1]
             overlap_start = s_i
@@ -812,7 +784,7 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
             t = (coords - t_start) / w
             mask = np.where(ramp_mask, 0.5 - 0.5 * np.cos(np.pi * t), mask)
             
-        # Right boundary transition (with tile tile_idx + 1)
+        # right boundary transition (with tile tile_idx + 1)
         if tile_idx < len(starts) - 1:
             s_next = starts[tile_idx + 1]
             overlap_start = s_next
@@ -832,7 +804,7 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
             
         return mask
 
-    # If the image is smaller than or equal to the tile size, we process it in one single pass
+    # if the image is smaller than or equal to the tile size, we process it in one single pass
     if H <= tile_size and W <= tile_size:
         print(f"[SD-REFINE] Image size {W}x{H} is smaller than tile size {tile_size}. Processing as a single tile...")
         init_image = Image.fromarray(img_np_bgr[:, :, ::-1])
@@ -852,19 +824,19 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
             
         sd_out_np = np.array(output)[:, :, ::-1].copy().astype(np.float32)
         
-        # Calculate dynamic detail retention based on tile size
-        # This prevents 8x upscales from washing out all the macroscopic texture
+        # calculate dynamic detail retention based on tile size
+        # this prevents 8x upscales from washing out all the macroscopic texture
         dynamic_sigma_hybrid = max(2.0, tile_size / 64.0)
         dynamic_sigma_full = max(1.0, tile_size / 128.0)
         
         if mode == 'hybrid':
-            # Frequency separation at native size
+            # frequency separation at native size
             sd_diff = sd_out_np - img_np_bgr.astype(np.float32)
             # High-pass filter the difference map
             sd_diff_blur = cv2.GaussianBlur(sd_diff, (0, 0), sigmaX=dynamic_sigma_hybrid)
             sd_diff_highpass = sd_diff - sd_diff_blur
             
-            # Protect sharp structural edges of the GAN input from VAE-induced blurring
+            # protect sharp structural edges of the GAN input from VAE-induced blurring
             gray_in = cv2.cvtColor(img_np_bgr.astype(np.uint8), cv2.COLOR_BGR2GRAY)
             grad_x = cv2.Sobel(gray_in, cv2.CV_32F, 1, 0, ksize=3)
             grad_y = cv2.Sobel(gray_in, cv2.CV_32F, 0, 1, ksize=3)
@@ -873,12 +845,12 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
             edge_mask = cv2.GaussianBlur(edge_mask, (3, 3), 0)
             edge_mask = np.expand_dims(edge_mask, axis=-1)
             
-            # Add detail-boosted high-pass detail back to GAN, masked by (1 - edge_mask)
+            # add detail-boosted high-pass detail back to GAN, masked by (1 - edge_mask)
             final_img = img_np_bgr.astype(np.float32) + sd_diff_highpass * (detail_boost * (1.0 - edge_mask))
             final_img = np.clip(final_img, 0, 255).astype(np.uint8)
         else:
             if detail_boost > 1.0:
-                # Apply high-frequency detail boost to SD output
+                # apply high-frequency detail boost to SD output
                 sd_blur = cv2.GaussianBlur(sd_out_np, (0, 0), sigmaX=dynamic_sigma_full)
                 sd_highpass = sd_out_np - sd_blur
                 final_img = sd_out_np + sd_highpass * (detail_boost - 1.0)
@@ -886,13 +858,13 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
             else:
                 final_img = np.clip(sd_out_np, 0, 255).astype(np.uint8)
                 
-        # Protect faces from SD distortion by blending original back over detected face regions
+        # protect faces from SD distortion by blending original back over detected face regions
         if len(face_boxes) > 0:
             final_img = (img_np_bgr.astype(np.float32) * face_mask + final_img.astype(np.float32) * (1.0 - face_mask)).astype(np.uint8)
             
         return final_img
             
-    # Calculate tile coordinates
+    # calculate tile coordinates
     y_starts = []
     y = 0
     while y + tile_size < H:
@@ -926,7 +898,7 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
     grad_y = cv2.Sobel(small_gray, cv2.CV_32F, 0, 1, ksize=3)
     grad_mag_small = np.sqrt(grad_x**2 + grad_y**2)
     
-    # Prepare all tiles coordinates and check flatness
+    # prepare all tiles coordinates and check flatness
     tiles_info = []
     flat_count = 0
     for iy, y1 in enumerate(y_starts):
@@ -934,19 +906,19 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
             y2 = y1 + tile_size
             x2 = x1 + tile_size
             
-            # Check flatness using the small edge magnitude map
+            # check flatness using the small edge magnitude map
             sy1 = int(y1 * scale_factor)
             sy2 = int(y2 * scale_factor)
             sx1 = int(x1 * scale_factor)
             sx2 = int(x2 * scale_factor)
             
-            # Ensure valid dimensions in downscaled coordinate space
+            # ensure valid dimensions in downscaled coordinate space
             sy2 = max(sy2, sy1 + 1)
             sx2 = max(sx2, sx1 + 1)
             
             tile_mag = grad_mag_small[sy1:sy2, sx1:sx2]
             
-            # Determine if tile has enough high-frequency detail
+            # determine if tile has enough high-frequency detail
             is_flat = False
             if tile_mag.size > 0:
                 pct95 = np.percentile(tile_mag, 95)
@@ -964,11 +936,11 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
             
     print(f"[SD-REFINE] Total tiles: {total_tiles} | Flat tiles (skipped): {flat_count} | Detailed tiles (processed): {total_tiles - flat_count}")
 
-    # Accumulators for blending
+    # accumulators for blending
     accum_image = np.zeros((H, W, 3), dtype=np.float32)
     accum_weight = np.zeros((H, W, 1), dtype=np.float32)
     
-    # Blending flat tiles directly (no SD inference needed)
+    # blending flat tiles directly (no SD inference needed)
     for item in tiles_info:
         if item['flat']:
             tile_in = img_np_bgr[item['y1']:item['y2'], item['x1']:item['x2']]
@@ -989,7 +961,7 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
     start_sd_t = time.time()
     
     tile_count = 0
-    # Determine batch size dynamically based on VRAM capacity
+    # determine batch size dynamically based on VRAM capacity
     import torch
     if device_name == 'cpu':
         batch_size = 1
@@ -998,9 +970,9 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
         if vram_gb < 5.5:
             batch_size = 1
         elif vram_gb < 7.5:
-            batch_size = 2 # Extremely safe for 6GB VRAM
+            batch_size = 2 # extremely safe for 6GB VRAM
         else:
-            batch_size = 4 # High speed for 8GB+ VRAM
+            batch_size = 4 # high speed for 8GB+ VRAM
 
     for i in range(0, total_detailed, batch_size):
         if _should_abort:
@@ -1009,7 +981,7 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
             
         batch_items = detailed_tiles[i:i+batch_size]
         
-        # Crop tiles and prepare batch lists
+        # crop tiles and prepare batch lists
         init_images = []
         control_images = []
         for item in batch_items:
@@ -1017,7 +989,7 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
             init_images.append(Image.fromarray(tile_in[:, :, ::-1]))
             control_images.append(Image.fromarray(tile_in[:, :, ::-1]))
             
-        # Run SD batch inference
+        # run SD batch inference
         with torch.inference_mode():
             outputs = pipe(
                 prompt=[prompt] * len(batch_items),
@@ -1030,7 +1002,7 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
                 guidance_scale=7.5
             ).images
             
-        # Calculate dynamic detail retention based on tile size
+        # calculate dynamic detail retention based on tile size
         dynamic_sigma_hybrid = max(2.0, tile_size / 64.0)
         dynamic_sigma_full = max(1.0, tile_size / 128.0)
 
@@ -1043,7 +1015,7 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
                 sd_diff_blur = cv2.GaussianBlur(sd_diff, (0, 0), sigmaX=dynamic_sigma_hybrid)
                 sd_diff_highpass = sd_diff - sd_diff_blur
                 
-                # Protect sharp structural edges of the GAN input from VAE-induced blurring
+                # protect sharp structural edges of the GAN input from VAE-induced blurring
                 gray_in = cv2.cvtColor(tile_in.astype(np.uint8), cv2.COLOR_BGR2GRAY)
                 grad_x = cv2.Sobel(gray_in, cv2.CV_32F, 1, 0, ksize=3)
                 grad_y = cv2.Sobel(gray_in, cv2.CV_32F, 0, 1, ksize=3)
@@ -1052,18 +1024,18 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
                 edge_mask = cv2.GaussianBlur(edge_mask, (3, 3), 0)
                 edge_mask = np.expand_dims(edge_mask, axis=-1)
                 
-                # Apply detail boost only in non-edge regions to inject textures without blurring details
+                # apply detail boost only in non-edge regions to inject textures without blurring details
                 tile_processed = tile_in.astype(np.float32) + sd_diff_highpass * (detail_boost * (1.0 - edge_mask))
             else:
                 if detail_boost > 1.0:
-                    # Apply high-frequency detail boost to SD output directly
+                    # apply high-frequency detail boost to SD output directly
                     sd_blur = cv2.GaussianBlur(tile_out_np, (0, 0), sigmaX=dynamic_sigma_full)
                     sd_highpass = tile_out_np - sd_blur
                     tile_processed = tile_out_np + sd_highpass * (detail_boost - 1.0)
                 else:
                     tile_processed = tile_out_np
             
-            # Blending mask
+            # blending mask
             mask_y = get_tile_mask_1d(y_starts, item['iy'], tile_size, overlap)
             mask_x = get_tile_mask_1d(x_starts, item['ix'], tile_size, overlap)
             mask = np.outer(mask_y, mask_x)
@@ -1073,7 +1045,7 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
             accum_weight[item['y1']:item['y2'], item['x1']:item['x2']] += mask
             
         tile_count += len(batch_items)
-        # Update global progress status
+        # update global progress status
         elapsed_total = time.time() - start_sd_t
         avg_tile_time = elapsed_total / tile_count
         remaining_tiles = total_detailed - tile_count
@@ -1094,37 +1066,33 @@ def apply_sd_controlnet_refine(img_np_bgr, prompt, negative_prompt, denoising_st
             'stage': f"SD Texture Refinement ({tile_count}/{total_detailed})"
         })
             
-    # Normalize blending
+    # normalize blending
     final_image = accum_image / (accum_weight + 1e-8)
     final_image = np.clip(final_image, 0, 255).astype(np.uint8)
     
-    # Protect faces from SD distortion by blending original back over detected face regions
+    # protect faces from SD distortion by blending original back over detected face regions
     if len(face_boxes) > 0:
         final_image = (img_np_bgr.astype(np.float32) * face_mask + final_image.astype(np.float32) * (1.0 - face_mask)).astype(np.uint8)
         
     return final_image.copy()
 
-
 def apply_color_matching(lr_img_np, hr_img_np):
-    """
-    Adjust upscaled HR image to match the color and contrast of the original LR image
-    using mean and standard deviation alignment in LAB color space.
-    """
+    # adjust upscaled hr image to match the color and contrast of the original lr image
     import cv2
     import numpy as np
     
-    # Compute stats on the low-resolution shape to save gigabytes of system memory
+    # compute stats on the low-resolution shape to save gigabytes of system memory
     lr_h, lr_w, _ = lr_img_np.shape
     hr_small = cv2.resize(hr_img_np, (lr_w, lr_h), interpolation=cv2.INTER_AREA)
     
     hr_small_lab = cv2.cvtColor(hr_small, cv2.COLOR_BGR2LAB).astype(np.float32)
     lr_small_lab = cv2.cvtColor(lr_img_np, cv2.COLOR_BGR2LAB).astype(np.float32)
     
-    # Compute mean and std on low-res representations
+    # compute mean and std on low-res representations
     mean_hr, std_hr = cv2.meanStdDev(hr_small_lab)
     mean_lr, std_lr = cv2.meanStdDev(lr_small_lab)
     
-    # Reshape and cast to float32 to prevent automatic numpy upcasting to float64
+    # reshape and cast to float32 to prevent automatic numpy upcasting to float64
     mean_hr = mean_hr.reshape(1, 1, 3).astype(np.float32)
     std_hr = std_hr.reshape(1, 1, 3).astype(np.float32)
     mean_lr = mean_lr.reshape(1, 1, 3).astype(np.float32)
@@ -1133,18 +1101,17 @@ def apply_color_matching(lr_img_np, hr_img_np):
     std_ratio = (std_lr / (std_hr + np.float32(1e-6))).astype(np.float32)
     std_ratio = np.clip(std_ratio, np.float32(0.6), np.float32(1.8))
     
-    # Apply color correction to the full high-resolution image in float32
+    # apply color correction to the full high-resolution image in float32
     hr_lab = cv2.cvtColor(hr_img_np, cv2.COLOR_BGR2LAB).astype(np.float32)
     corrected_lab = (hr_lab - mean_hr) * std_ratio + mean_lr
     corrected_lab = np.clip(corrected_lab, 0.0, 255.0).astype(np.uint8)
     
     return cv2.cvtColor(corrected_lab, cv2.COLOR_LAB2BGR)
 
-
 _face_enhancer_cache = {}
 
 def _get_face_enhancer(device):
-    """Build GFPGAN face enhancer (lazy loaded per device)."""
+    # build gfpgan face enhancer (lazy loaded per device)
     global _face_enhancer_cache
     device_name = str(device)
     if device_name in _face_enhancer_cache:
@@ -1165,7 +1132,7 @@ def _get_face_enhancer(device):
         
         enhancer = GFPGANer(
             model_path=face_model_path,
-            upscale=1,  # We handle upscaling separately
+            upscale=1,  # we handle upscaling separately
             arch='clean',
             channel_multiplier=2,
             bg_upsampler=None,
@@ -1178,16 +1145,10 @@ def _get_face_enhancer(device):
         print(f"[WARNING] GFPGAN not available: {e}")
         return None
 
-
-# ======================== IMAGE ANALYSIS ======================================
-
 def detect_block_size(img, max_k=8):
-    """
-    Detect if the image was upscaled using nearest-neighbor.
-    Returns the block size K (1 if no blockiness detected).
-    """
+    # detect if the image was upscaled using nearest-neighbor
     try:
-        # Convert image to grayscale numpy array for fast analysis
+        # convert image to grayscale numpy array for fast analysis
         gray = img.convert('L')
         arr = np.array(gray)
         h, w = arr.shape
@@ -1195,16 +1156,16 @@ def detect_block_size(img, max_k=8):
         if h < 32 or w < 32:
             return 1
             
-        # Sample lines to make it extremely fast
+        # sample lines to make it extremely fast
         rows = np.linspace(5, h - 6, 30, dtype=int)
         cols = np.linspace(5, w - 6, 30, dtype=int)
         
         run_lengths = []
         
-        # Analyze rows
+        # analyze rows
         for r in rows:
             row = arr[r, :]
-            # Find runs of nearly identical pixels (handling JPEG compression noise)
+            # find runs of nearly identical pixels (handling JPEG compression noise)
             diff = np.abs(row[1:].astype(int) - row[:-1].astype(int))
             zeros = (diff <= 2)
             run_len = 0
@@ -1218,7 +1179,7 @@ def detect_block_size(img, max_k=8):
             if run_len > 0:
                 run_lengths.append(run_len + 1)
                 
-        # Analyze columns
+        # analyze columns
         for c in cols:
             col = arr[:, c]
             diff = np.abs(col[1:].astype(int) - col[:-1].astype(int))
@@ -1237,7 +1198,7 @@ def detect_block_size(img, max_k=8):
         if not run_lengths:
             return 1
             
-        # Count frequencies of run lengths
+        # count frequencies of run lengths
         from collections import Counter
         counts = Counter(run_lengths)
         
@@ -1267,9 +1228,7 @@ def detect_block_size(img, max_k=8):
         return 1
 
 def classify_image_type(img):
-    """
-    Classify image as 'anime' (illustrations/line-art) or 'photo'.
-    """
+    # classify image as 'anime' (illustrations/line-art) or 'photo'
     try:
         small = img.resize((128, 128), Image.Resampling.BILINEAR)
         arr = np.array(small)
@@ -1294,9 +1253,7 @@ def classify_image_type(img):
         return 'photo'
 
 def estimate_noise_level(img):
-    """
-    Estimate image noise level using block variance in grayscale.
-    """
+    # estimate image noise level using block variance in grayscale
     try:
         w, h = img.size
         if w > 512 or h > 512:
@@ -1324,7 +1281,7 @@ def estimate_noise_level(img):
             return 0.0
             
         variances.sort()
-        # Trimmed median: exclude bottom 15% (flat blocks) and top 50% (strong edges)
+        # trimmed median: exclude bottom 15% (flat blocks) and top 50% (strong edges)
         # to calculate a robust noise variance representing background texture and noise
         start_idx = int(len(variances) * 0.15)
         end_idx = int(len(variances) * 0.50)
@@ -1340,12 +1297,8 @@ def estimate_noise_level(img):
         return 0.0
 
 def apply_cinematic_grading(img_np, strength):
-    """
-    Apply professional Hollywood Teal & Orange split-toning color grade.
-    img_np: numpy float array [0, 255] with shape (H, W, 3)
-    strength: float [0.0, 1.0]
-    """
-    # Calculate luminance
+    # apply professional hollywood teal & orange split-toning color grade
+    # calculate luminance
     r = img_np[:, :, 0]
     g = img_np[:, :, 1]
     b = img_np[:, :, 2]
@@ -1358,7 +1311,7 @@ def apply_cinematic_grading(img_np, strength):
     norm_lifted = black_lift + (1.0 - black_lift) * norm_lum
     s_curve = norm_lifted * norm_lifted * (3.0 - 2.0 * norm_lifted)
     
-    # Blend original luminance with s-curve
+    # blend original luminance with s-curve
     lum_target = (norm_lum + (s_curve - norm_lum) * 0.4 * strength) * 255.0
     
     # 2. Teal & Orange Split Toning
@@ -1367,12 +1320,12 @@ def apply_cinematic_grading(img_np, strength):
     # warm highlights (orange): active in bright regions
     highlight_mask = np.clip((norm_lum - 0.45) * 2.0, 0, 1)
     
-    # Teal shift: reduce red, increase blue, keep green neutral
+    # teal shift: reduce red, increase blue, keep green neutral
     r_adj = r * (1.0 - shadow_mask * 0.18 * strength)
     g_adj = g * (1.0 - shadow_mask * 0.02 * strength)
     b_adj = b * (1.0 + shadow_mask * 0.12 * strength)
     
-    # Orange shift: increase red and green slightly, reduce blue
+    # orange shift: increase red and green slightly, reduce blue
     r_adj = r_adj * (1.0 + highlight_mask * 0.15 * strength)
     g_adj = g_adj * (1.0 + highlight_mask * 0.03 * strength)
     b_adj = b_adj * (1.0 - highlight_mask * 0.18 * strength)
@@ -1399,10 +1352,7 @@ def apply_cinematic_grading(img_np, strength):
     return np.stack([r_final, g_final, b_final], axis=2)
 
 def apply_advanced_filters(img, options):
-    """
-    Apply advanced fine-tuning filters to the upscaled PIL image.
-    Options keys: 'sharpening', 'detail', 'contrast', 'colorBoost', 'denoise', 'grain', 'cinematic'
-    """
+    # apply advanced fine-tuning filters to the upscaled pil image
     try:
         denoise_level = int(options.get('denoise', 0))
         detail_level = int(options.get('detail', 0))
@@ -1418,10 +1368,10 @@ def apply_advanced_filters(img, options):
         # 2. Dual-Stage Adaptive Sharpening (Topaz-style micro-sharpness + local clarity pop)
         if sharpening_level > 0:
             factor = (sharpening_level / 100.0)
-            # Stage 1: Fine micro-sharpening (captures texture details)
+            # stage 1: Fine micro-sharpening (captures texture details)
             percent_fine = int(factor * 120)
             img = img.filter(ImageFilter.UnsharpMask(radius=0.5, percent=percent_fine, threshold=0))
-            # Stage 2: Broad clarity/structure (makes details and boundaries pop, no halos)
+            # stage 2: Broad clarity/structure (makes details and boundaries pop, no halos)
             percent_broad = int(factor * 45)
             img = img.filter(ImageFilter.UnsharpMask(radius=2.5, percent=percent_broad, threshold=1))
             
@@ -1438,17 +1388,17 @@ def apply_advanced_filters(img, options):
         # 5. Chunked processing for memory-heavy operations (Detail, Cinematic, Grain)
         if detail_level > 0 or cinematic_level > 0 or grain_level > 0:
             width, height = img.size
-            # Create a new empty image of the same size to compile the output chunks
+            # create a new empty image of the same size to compile the output chunks
             out_img = Image.new('RGB', (width, height))
             
-            # Use 1024 or 2048 as chunk height depending on total size
+            # use 1024 or 2048 as chunk height depending on total size
             chunk_h = 1024 if (width * height > 4000 * 4000) else 2048
             margin = 8  # 8px margin to completely avoid Gaussian Blur boundary seams
             
             for y_start in range(0, height, chunk_h):
                 y_end = min(height, y_start + chunk_h)
                 
-                # Crop the chunk with margins for boundary-accurate blur
+                # crop the chunk with margins for boundary-accurate blur
                 crop_y_start = max(0, y_start - margin)
                 crop_y_end = min(height, y_end + margin)
                 chunk_pil = img.crop((0, crop_y_start, width, crop_y_end))
@@ -1461,7 +1411,7 @@ def apply_advanced_filters(img, options):
                     blurred_arr = np.array(blurred_chunk).astype(np.float32)
                     detail_band = chunk_arr - blurred_arr
                     
-                    # Mask detail band near edges (increased threshold to 40.0 for Topaz-level edge clarity)
+                    # mask detail band near edges (increased threshold to 40.0 for Topaz-level edge clarity)
                     abs_detail = np.abs(detail_band[:, :, :3])
                     threshold = np.float32(40.0)
                     scale_mask = np.ones_like(detail_band[:, :, :3], dtype=np.float32)
@@ -1472,7 +1422,7 @@ def apply_advanced_filters(img, options):
                     chunk_arr[:, :, :3] = np.clip(chunk_arr[:, :, :3] + detail_band[:, :, :3] * (factor * scale_mask), 0.0, 255.0).astype(np.float32)
                 
                 # B. Slice back to target coordinates (removing margins)
-                # Calculate coordinates of the target chunk relative to the cropped chunk
+                # calculate coordinates of the target chunk relative to the cropped chunk
                 rel_y_start = y_start - crop_y_start
                 rel_y_end = rel_y_start + (y_end - y_start)
                 target_chunk_arr = chunk_arr[rel_y_start:rel_y_end, :, :3].copy()
@@ -1488,7 +1438,7 @@ def apply_advanced_filters(img, options):
                     r_c = target_chunk_arr[:, :, 0]
                     g_c = target_chunk_arr[:, :, 1]
                     b_c = target_chunk_arr[:, :, 2]
-                    # Compute luminance in float32
+                    # compute luminance in float32
                     lum_c = (np.float32(0.299) * r_c + np.float32(0.587) * g_c + np.float32(0.114) * b_c) / np.float32(255.0)
                     
                     grain_mask = np.clip(np.float32(4.0) * lum_c * (np.float32(1.0) - lum_c), 0.0, 1.0).astype(np.float32)
@@ -1502,21 +1452,21 @@ def apply_advanced_filters(img, options):
                     small_h, small_w = max(2, h // 2), max(2, w // 2)
                     noise_med_small = np.random.normal(0, factor * 0.45, (small_h, small_w, 1)).astype(np.float32)
                     
-                    # Convert to temp array to upscale bilinearly with PIL
+                    # convert to temp array to upscale bilinearly with PIL
                     noise_med_pil = Image.fromarray(np.squeeze((noise_med_small + 128.0).clip(0, 255).astype(np.uint8)))
                     noise_med_pil = noise_med_pil.resize((w, h), Image.Resampling.BILINEAR)
                     noise_med = (np.array(noise_med_pil).astype(np.float32) - 128.0)
                     noise_med = np.expand_dims(noise_med, axis=2)
                     
-                    # Total organic multi-scale texture in float32
+                    # total organic multi-scale texture in float32
                     total_texture = noise_fine + noise_med
                     target_chunk_arr = np.clip(target_chunk_arr + total_texture * grain_mask, 0.0, 255.0).astype(np.float32)
                     
-                # Paste the processed chunk back to final image
+                # paste the processed chunk back to final image
                 processed_chunk_pil = Image.fromarray(target_chunk_arr.astype(np.uint8))
                 out_img.paste(processed_chunk_pil, (0, y_start))
                 
-                # Free memory immediately to prevent accumulation across chunks
+                # free memory immediately to prevent accumulation across chunks
                 del chunk_arr, target_chunk_arr, processed_chunk_pil
                 import gc; gc.collect()
                 
@@ -1528,25 +1478,13 @@ def apply_advanced_filters(img, options):
         traceback.print_exc()
         return img
 
-
-# ======================== UPSCALE PIPELINE ====================================
-
 def upscale_image(img_bytes, model_name, target_scale, options):
-    """
-    Professional multi-stage upscale pipeline:
-    1. Decode & analyze image (Auto model selection, De-blockify check)
-    2. Pre-process and apply De-blockify downscaling if needed
-    3. Run Real-ESRGAN super-resolution (CUDA/CPU)
-    4. Handle scale constraints (stacking / scaling)
-    5. Optional face restoration (GFPGAN)
-    6. Apply advanced fine-tuning filters in Python
-    7. Encode output
-    """
+    # professional multi-stage upscale pipeline:
     start = time.time()
     global _should_abort
     _should_abort = False
     
-    # Dynamically release previously cached SD models to free VRAM for tiled upscaling
+    # dynamically release previously cached SD models to free VRAM for tiled upscaling
     free_gpu_memory()
     
     global _current_progress
@@ -1560,7 +1498,7 @@ def upscale_image(img_bytes, model_name, target_scale, options):
         'percent': 5
     })
     
-    # Save input image for debugging only when DEBUG env var is set
+    # debug write if needed
     if os.environ.get('DEBUG'):
         try:
             input_save_path = os.path.join(DIR, "last_input.png")
@@ -1570,7 +1508,7 @@ def upscale_image(img_bytes, model_name, target_scale, options):
         except Exception as e:
             print(f"[WARNING] Failed to save debug input image: {e}")
         
-    # --- 1. Decode input ---
+    # --- 1. decode client image bytes ---
     input_img = Image.open(io.BytesIO(img_bytes)).convert('RGB')
     orig_w, orig_h = input_img.size
     
@@ -1597,7 +1535,7 @@ def upscale_image(img_bytes, model_name, target_scale, options):
     if print_quality:
         import cv2
         
-        # Determine the working scale for AI processing
+        # determine the working scale for AI processing
         work_scale = 2 if enhance_mode else min(target_scale, 4)
         final_w = orig_w if enhance_mode else orig_w * target_scale
         final_h = orig_h if enhance_mode else orig_h * target_scale
@@ -1640,37 +1578,37 @@ def upscale_image(img_bytes, model_name, target_scale, options):
         if device_name == 'cuda':
             _torch.cuda.empty_cache()
         
-        # Make sure both are the same size
+        # make sure both are the same size
         if ai_pil.size != lanczos_up.size:
             ai_pil = ai_pil.resize(lanczos_up.size, Image.Resampling.LANCZOS)
         ai_np = np.array(ai_pil).astype(np.float32)
         
-        # --- Step 3: Extract high-frequency detail from AI output ---
-        # Blur the AI output to get its low-frequency component
-        # Subtract to get the HIGH-FREQUENCY detail the AI generated
-        blur_radius = 3  # Controls detail extraction scale
+        # --- Step 3: get high freq detail layer ---
+        # blur the AI output to get its low-frequency component
+        # subtract to get the HIGH-FREQUENCY detail the AI generated
+        blur_radius = 3  # controls detail extraction scale
         print(f"[PRINT] Step 3: Extracting AI high-frequency detail (blur_radius={blur_radius})...")
         ai_lowfreq = cv2.GaussianBlur(ai_np, (0, 0), sigmaX=blur_radius)
         ai_detail = ai_np - ai_lowfreq  # High-frequency detail layer
         
-        # Also extract Lanczos high-freq for comparison
+        # also extract Lanczos high-freq for comparison
         lanczos_lowfreq = cv2.GaussianBlur(lanczos_np, (0, 0), sigmaX=blur_radius)
         
-        # --- Step 4: Blend AI detail onto Lanczos base ---
+        # --- Step 4: blend high-freq details back onto lanczos ---
         # detail_strength controls how much AI texture to inject
         detail_strength = options.get('detail', 70) / 100.0  # 0.0 to 1.0
         detail_strength = max(0.3, min(1.0, detail_strength))  # clamp to useful range
         print(f"[PRINT] Step 4: Blending AI detail onto Lanczos base (strength={detail_strength:.0%})...")
         
-        # Final = Lanczos base + (AI detail * strength)
+        # final = Lanczos base + (AI detail * strength)
         result_np = lanczos_np + (ai_detail * detail_strength)
         result_np = np.clip(result_np, 0, 255).astype(np.uint8)
         
-        # --- Step 5: Print-specific sharpening ---
-        # Print requires clean sharpening without edge halos
+        # --- Step 5: sharpen for printing ---
+        # print requires clean sharpening without edge halos
         sharpening = options.get('sharpening', 50)
         if sharpening > 0:
-            # Calibrated radius (0.6 - 1.2) prevents halo artifacts
+            # calibrated radius (0.6 - 1.2) prevents halo artifacts
             radius = 0.6 + (sharpening / 100.0) * 0.6
             amount = 30 + (sharpening / 100.0) * 70
             print(f"[PRINT] Step 5: Clean print sharpening (radius={radius:.2f}, amount={amount:.0f}%)")
@@ -1680,18 +1618,18 @@ def upscale_image(img_bytes, model_name, target_scale, options):
             )
             result_np = np.array(result_pil)
         
-        # --- Step 6: CLAHE micro-contrast for print pop ---
+        # --- Step 6: clahe contrast boost ---
         print("[PRINT] Step 6: CLAHE micro-contrast for print definition...")
         lab = cv2.cvtColor(result_np, cv2.COLOR_RGB2LAB)
         l_ch, a_ch, b_ch = cv2.split(lab)
-        # Reduced and contrast-dependent clip limit prevents grain amplification
+        # reduced and contrast-dependent clip limit prevents grain amplification
         clip_limit = 1.0 + (options.get('contrast', 50) / 100.0) * 0.3
         clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(8, 8))
         l_ch = clahe.apply(l_ch)
         lab = cv2.merge([l_ch, a_ch, b_ch])
         result_np = cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
         
-        # --- Step 7: Resize to final dimensions ---
+        # --- Step 7: final resize step ---
         output_pil = Image.fromarray(result_np)
         if output_pil.size != (final_w, final_h):
             print(f"[PRINT] Step 7: Resizing to final {final_w}x{final_h}...")
@@ -1699,7 +1637,7 @@ def upscale_image(img_bytes, model_name, target_scale, options):
         
         out_w, out_h = output_pil.size
         
-        # Encode
+        # encode
         elapsed = time.time() - start
         use_jpeg = (out_w * out_h >= 4000 * 4000)
         if use_jpeg:
@@ -1716,7 +1654,7 @@ def upscale_image(img_bytes, model_name, target_scale, options):
         size_mb = len(b64) * 3 / 4 / (1024 * 1024)
         print(f"[DONE] Print-quality {out_w}x{out_h} in {elapsed:.1f}s ({size_mb:.1f} MB)")
         
-        # Save debug output
+        # save debug output
         try:
             output_save_path = os.path.join(DIR, "last_output.png")
             output_pil.save(output_save_path)
@@ -1742,7 +1680,7 @@ def upscale_image(img_bytes, model_name, target_scale, options):
     noise_lvl = estimate_noise_level(input_img)
     detected_type = classify_image_type(input_img)
     
-    # Resolve device to run on
+    # resolve device to run on
     device_name = options.get('device', 'cuda')
     _init_torch()
     if device_name == 'cpu' or not _torch.cuda.is_available():
@@ -1753,7 +1691,7 @@ def upscale_image(img_bytes, model_name, target_scale, options):
         dev = _torch.device('cuda')
     print(f"[RUN] Upscaling executing on: {device_name.upper()}")
     
-    # If device is CPU, override heavy models with compact models for processing speed
+    # if device is CPU, override heavy models with compact models for processing speed
     if device_name == 'cpu':
         if model_name == 'auto':
             if detected_type == 'anime':
@@ -1769,10 +1707,10 @@ def upscale_image(img_bytes, model_name, target_scale, options):
             print(f"[CPU OVERRIDE] Heavy anime model '{model_name}' is too slow on CPU. Overriding with 'realesr-animevideov3' for speed.")
             model_name = 'realesr-animevideov3'
     else:
-        # Auto model selection on GPU
+        # auto model select
         if model_name == 'auto':
             if detected_type == 'anime':
-                # Check if anime weight is present; fall back to general if not
+                # check if anime weight is present; fall back to general if not
                 anime_path = os.path.join(MODELS_DIR, 'RealESRGAN_x4plus_anime_6B.pth')
                 if os.path.exists(anime_path):
                     model_name = 'realesrgan-x4plus-anime'
@@ -1784,11 +1722,11 @@ def upscale_image(img_bytes, model_name, target_scale, options):
                 model_name = 'hat-realesrgan-blend'
                 print("[AUTO-MODEL] Selected SOTA Model Ensemble Blend (hat-realesrgan-blend) for Maximum detail")
             else:
-                # Use SOTA HAT GAN Sharper by default for ultimate details (noise is pre-cleaned by bilateral filter)
+                # use SOTA HAT GAN Sharper by default for ultimate details (noise is pre-cleaned by bilateral filter)
                 model_name = 'hat-sharper'
                 print("[AUTO-MODEL] Selected SOTA HAT GAN Sharper Model (hat-sharper) for maximum details")
                 
-    # Auto preset settings
+    # auto preset settings
     if options.get('preset') == 'auto':
         if detected_type == 'anime':
             options['sharpening'] = 50
@@ -1822,7 +1760,7 @@ def upscale_image(img_bytes, model_name, target_scale, options):
     model_info = MODEL_REGISTRY.get(model_name, MODEL_REGISTRY[DEFAULT_MODEL])
     native_scale = model_info['scale']
     
-    # Apply De-Blockify point downscaling
+    # apply De-Blockify point downscaling
     if block_size > 1 and not enhance_mode:
         print(f"[DE-BLOCK] Applying 1/{block_size}x Box downsampling to restore native low-res grid...")
         down_w = orig_w // block_size
@@ -1848,7 +1786,7 @@ def upscale_image(img_bytes, model_name, target_scale, options):
         ai_scale = safe_scale
         output_megapixels = input_megapixels * (ai_scale ** 2)
         
-    img_np = np.array(input_img)[:, :, ::-1]  # RGB -> BGR
+    img_np = np.array(input_img)[:, :, ::-1]  # rgb -> BGR
     
     # --- 3. Pre-processing ---
     denoise_level = int(options.get('denoise', 0))
@@ -1904,7 +1842,7 @@ def upscale_image(img_bytes, model_name, target_scale, options):
                 sd_refine_stage='pre'
             )
             print("[PRE-PROCESS] Pre-upscale Stable Diffusion refinement complete.")
-            # Clear SD model from VRAM to make room for Spandrel upscaler
+            # clear SD model from VRAM to make room for Spandrel upscaler
             free_gpu_memory()
         except Exception as e:
             print(f"[WARNING] Pre-upscale Stable Diffusion refinement failed: {e}")
@@ -1932,25 +1870,25 @@ def upscale_image(img_bytes, model_name, target_scale, options):
             raise ValueError("Replicate API Token is required for Cloud SUPIR. Please paste it in the UI.")
         
         output_rgb = _replicate_upscale(img_bytes, ai_scale, replicate_api_key)
-        # Convert RGB to BGR for consistency
+        # convert RGB to BGR for consistency
         output_np = output_rgb[:, :, ::-1].copy()
     elif use_spandrel:
         # --- Spandrel path (HAT, SwinIR, etc.) ---
         print(f"[RUN] Using spandrel engine for {model_name}...")
         spandrel_model = _get_spandrel_model(model_name, device_name=device_name)
-        # Spandrel expects RGB input, img_np is currently BGR
+        # spandrel expects RGB input, img_np is currently BGR
         img_rgb = img_np[:, :, ::-1].copy()
-        # Determine tile size and pad based on VRAM and bf16 support
+        # determine tile size and pad based on VRAM and bf16 support
         sp_tile, sp_pad = _get_adaptive_spandrel_tile_params(device_name)
         print(f"[RUN] Selected tiling params: size={sp_tile}, pad={sp_pad} (bf16={is_bf16})")
         output_rgb = _spandrel_tiled_upscale(spandrel_model, img_rgb, native_scale, tile_size=sp_tile, tile_pad=sp_pad, device_name=device_name)
-        # If target scale != native scale, resize
+        # if target scale != native scale, resize
         target_h, target_w = int(input_img.size[1] * ai_scale), int(input_img.size[0] * ai_scale)
         if output_rgb.shape[1] != target_w or output_rgb.shape[0] != target_h:
             output_pil_temp = Image.fromarray(output_rgb)
             output_pil_temp = output_pil_temp.resize((target_w, target_h), Image.Resampling.LANCZOS)
             output_rgb = np.array(output_pil_temp)
-        # Convert RGB to BGR for consistency with rest of pipeline
+        # convert RGB to BGR for consistency with rest of pipeline
         output_np = output_rgb[:, :, ::-1].copy()
     elif use_blend:
         # --- Model Blend path (HAT + RealESRGAN) ---
@@ -1980,7 +1918,7 @@ def upscale_image(img_bytes, model_name, target_scale, options):
         # --- RealESRGAN path ---
         upsampler = _build_upsampler(model_name, ai_scale, device_name=device_name, input_megapixels=input_megapixels)
         
-        # Set up scale factor splitting for double-pass
+        # set up scale factor splitting for double-pass
         if double_pass:
             if ai_scale >= native_scale:
                 pass1_scale = native_scale
@@ -2011,11 +1949,11 @@ def upscale_image(img_bytes, model_name, target_scale, options):
             if ai_scale > 4.0 and sd_refine and not sd_refine_pre:
                 print(f"[RUN] Splitting {ai_scale}x upscale into Multi-Pass to provide SD texture generator with context...")
                 
-                # Pass 1: Upscale to 4x (Optimal context resolution)
+                # pass 1: Upscale to 4x (Optimal context resolution)
                 print(f"[RUN] Context Pass 1: 4.00x base upscaling...")
                 output_np, _ = upsampler.enhance(img_np, outscale=4.0)
                 
-                # Run SD Refine at 4x
+                # run SD Refine at 4x
                 _current_progress.update({'stage': 'SD context texture refinement...', 'percent': 50})
                 print(f"[RUN] Injecting SD texture refinement at 4x for optimal global context...")
                 
@@ -2035,14 +1973,14 @@ def upscale_image(img_bytes, model_name, target_scale, options):
                     detail_threshold=detail_threshold, sd_refine_stage='post'
                 )
                 
-                # Flag to prevent it running AGAIN at step 7.5
+                # flag to prevent it running AGAIN at step 7.5
                 options['_sd_already_run'] = True
                 
-                # Pass 2: Upscale from 4x to target scale
+                # pass 2: Upscale from 4x to target scale
                 pass2_scale = ai_scale / 4.0
                 print(f"[RUN] Context Pass 2: {pass2_scale:.2f}x final mathematical stretch...")
                 
-                # Clear memory to prevent fragmentation before the massive 8x stretch
+                # clear memory to prevent fragmentation before the massive 8x stretch
                 free_gpu_memory()
                 upsampler = _build_upsampler(model_name, pass2_scale, device_name=device_name, input_megapixels=input_megapixels)
                 output_np, _ = upsampler.enhance(output_np, outscale=pass2_scale)
@@ -2079,13 +2017,13 @@ def upscale_image(img_bytes, model_name, target_scale, options):
         _current_progress.update({'stage': 'LAB color matching...', 'percent': 90})
         print("[POST] Applying LAB color matching to preserve original color profile...")
         try:
-            lr_np = np.array(input_img)[:, :, ::-1].copy() # LR original BGR
+            lr_np = np.array(input_img)[:, :, ::-1].copy() # lr original BGR
             output_np = apply_color_matching(lr_np, output_np)
             print("[OK] LAB color matching complete.")
         except Exception as e:
             print(f"[WARNING] LAB color matching failed: {e}")
 
-    # Convert BGR numpy array to PIL Image
+    # convert BGR numpy array to PIL Image
     output_pil = Image.fromarray(output_np[:, :, ::-1])
     
     # --- 6. Advanced Post-processing Filters ---
@@ -2093,7 +2031,7 @@ def upscale_image(img_bytes, model_name, target_scale, options):
     print("[RUN] Applying advanced fine-tuning filters...")
     output_pil = apply_advanced_filters(output_pil, options)
     
-    # Support legacy simple sharpening if advanced sliders not present
+    # support legacy simple sharpening if advanced sliders not present
     if 'sharpening' not in options:
         post_sharp = options.get('post_sharpen', 'light')
         if post_sharp == 'light':
@@ -2106,10 +2044,10 @@ def upscale_image(img_bytes, model_name, target_scale, options):
     # --- 7. Enforce Exact Target Dimensions ---
     out_w, out_h = output_pil.size
     if enhance_mode:
-        # Downscale back to original resolution for enhancement
+        # downscale back to original resolution for enhancement
         print(f"[ENHANCE] Downscaling from {out_w}x{out_h} back to original {orig_w}x{orig_h}...")
         output_pil = output_pil.resize((orig_w, orig_h), Image.Resampling.LANCZOS)
-        # Apply a light sharpening pass to crisp up the downscaled result
+        # apply a light sharpening pass to crisp up the downscaled result
         output_pil = output_pil.filter(ImageFilter.UnsharpMask(radius=0.6, percent=60, threshold=1))
         out_w, out_h = output_pil.size
         expected_w, expected_h = orig_w, orig_h
@@ -2125,7 +2063,7 @@ def upscale_image(img_bytes, model_name, target_scale, options):
     sd_refine = options.get('sd_refine', False)
     sd_refine_pre = sd_refine and (options.get('sd_refine_stage', 'post') == 'pre')
     if sd_refine and not sd_refine_pre and not options.get('_sd_already_run', False):
-        # Clear the upscaler model (spandrel_model) from GPU memory to make room for SD
+        # clear the upscaler model (spandrel_model) from GPU memory to make room for SD
         print("[GPU] Unloading upscaler model to allocate VRAM for Stable Diffusion...")
         _spandrel_cache.clear()
         _upsampler_cache.clear()
@@ -2140,7 +2078,7 @@ def upscale_image(img_bytes, model_name, target_scale, options):
         _current_progress.update({'stage': 'SD texture refinement...', 'percent': 80})
         print(f"[RUN] Applying Stable Diffusion 1.5 + ControlNet Tile texture refinement to {out_w}x{out_h} canvas...")
         try:
-            # Convert back to numpy for SD processing
+            # convert back to numpy for SD processing
             output_np = np.array(output_pil)[:, :, ::-1].copy()
             
             prompt = options.get('sd_prompt', 'raw photo, highly detailed, sharp focus, 8k, realistic textures, dslr, 35mm lens, film grain')
@@ -2167,14 +2105,14 @@ def upscale_image(img_bytes, model_name, target_scale, options):
                 sd_refine_stage='post'
             )
             print("[OK] Generative texture refinement complete.")
-            # Convert back to PIL
+            # convert back to PIL
             output_pil = Image.fromarray(output_np[:, :, ::-1])
         except Exception as e:
             print(f"[WARNING] Generative texture refinement failed: {e}")
             traceback.print_exc()
         
     # --- 8. Encode Output ---
-    # Use JPEG for large images to prevent huge CPU encoding times and massive base64 payloads
+    # use JPEG for large images to prevent huge CPU encoding times and massive base64 payloads
     use_jpeg = (out_w * out_h >= 4000 * 4000)
     if use_jpeg:
         print(f"[RUN] Encoding final {out_w}x{out_h} image as JPEG (quality=95, optimize=False)...")
@@ -2188,10 +2126,10 @@ def upscale_image(img_bytes, model_name, target_scale, options):
         mime_type = 'image/png'
         
     result_bytes = buf.getvalue()
-    print("[RUN] Encoding to base64 string...")
+    print("[RUN] b64 encoding step")
     result_b64 = base64.b64encode(result_bytes).decode()
     
-    # Save output image only in debug mode
+    # debug write if needed
     if os.environ.get('DEBUG'):
         try:
             output_save_path = os.path.join(DIR, "last_output.png")
@@ -2221,9 +2159,6 @@ def upscale_image(img_bytes, model_name, target_scale, options):
             'grain': options.get('grain', 12)
         } if options.get('preset') == 'auto' else None
     }
-
-
-# ======================== HTTP HANDLER ========================================
 
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
@@ -2258,7 +2193,7 @@ class Handler(SimpleHTTPRequestHandler):
                     vram_gb = round(_torch.cuda.get_device_properties(0).total_memory / 1024**3, 1)
                 except Exception:
                     pass
-            # Report which model weights are present on disk
+            # report which model weights are present on disk
             model_status = {}
             for name, info in MODEL_REGISTRY.items():
                 if info.get('engine') == 'replicate':
@@ -2290,7 +2225,7 @@ class Handler(SimpleHTTPRequestHandler):
         self._send_json({'success': True, 'message': 'Abort signal sent.'})
 
     def _handle_models(self):
-        """Return available models list with on-disk presence status."""
+        # return available models list with on-disk presence status
         models = []
         for name, info in MODEL_REGISTRY.items():
             if info.get('engine') == 'replicate':
@@ -2312,7 +2247,7 @@ class Handler(SimpleHTTPRequestHandler):
             length = int(self.headers.get('Content-Length', 0))
             body = json.loads(self.rfile.read(length))
             
-            # Decode base64 image
+            # decode base64 image
             img_b64 = body['image']
             if ',' in img_b64:
                 img_b64 = img_b64.split(',', 1)[1]
@@ -2350,7 +2285,7 @@ class Handler(SimpleHTTPRequestHandler):
                 'sd_detail_threshold': float(body.get('sd_detail_threshold', 50.0))
             }
             
-            # Map frontend model names to registry keys
+            # map frontend model names to registry keys
             model_map = {
                 'auto': 'auto',
                 'ultrasharp-4x': 'realesrgan-x4plus',
@@ -2384,7 +2319,7 @@ class Handler(SimpleHTTPRequestHandler):
         except Exception as e:
             traceback.print_exc()
             error_msg = str(e)
-            # Provide user-friendly error messages for common failures
+            # provide user-friendly error messages for common failures
             if 'not enough memory' in error_msg or 'DefaultCPUAllocator' in error_msg:
                 error_msg = ('Out of memory! The image is too large for the available RAM. '
                              'Try a smaller image, lower scale (2x instead of 4x), or '
@@ -2413,14 +2348,11 @@ class Handler(SimpleHTTPRequestHandler):
     def log_message(self, fmt, *args):
         try:
             req_str = str(args[0]) if args else ''
-            # Log all API requests, or errors which format with 'code %d'
+            # log all API requests, or errors which format with 'code %d'
             if '/api/' in req_str or 'code ' in fmt:
                 super().log_message(fmt, *args)
         except Exception:
             pass
-
-
-# ======================== STARTUP =============================================
 
 if __name__ == '__main__':
     print("=" * 60)
